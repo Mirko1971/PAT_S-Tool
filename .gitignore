@@ -1,0 +1,4 @@
+pat_s.db
+config.json
+__pycache__/
+*.pyc

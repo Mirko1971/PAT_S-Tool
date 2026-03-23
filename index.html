@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PAT_S – Physio-Akademie Tool Schulter</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --teal:       #0d9488;
+      --teal-dk:    #0f766e;
+      --teal-lt:    #f0fdfa;
+      --navy:       #1e3a5f;
+      --bg:         #f0f9ff;
+      --border:     #e2e8f0;
+      --muted:      #64748b;
+    }
+
+    /* ── Layout ── */
+    body { background: var(--bg); font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; }
+
+    .app-header {
+      background: linear-gradient(135deg, var(--navy) 0%, #0f4c75 100%);
+      color: #fff;
+      padding: .875rem 1.5rem;
+      position: sticky; top: 0; z-index: 1050;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .app-logo  { font-size: 1.3rem; font-weight: 700; color: #5eead4; letter-spacing: .02em; }
+    .app-sub   { font-size: .72rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; }
+    .patient-badge {
+      background: rgba(255,255,255,.15);
+      border-radius: 20px;
+      padding: .35rem .9rem;
+      font-size: .85rem;
+    }
+
+    /* ── Nav ── */
+    .top-nav {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 62px; z-index: 1040;
+    }
+    .top-nav .nav-link {
+      color: var(--muted);
+      padding: .7rem 1.1rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+    }
+    .top-nav .nav-link.active { color: var(--teal); border-color: var(--teal); }
+    .top-nav .nav-link:hover  { color: var(--teal); background: var(--teal-lt); }
+
+    /* ── Cards ── */
+    .card { border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .card-head-primary {
+      background: linear-gradient(135deg, var(--teal) 0%, var(--teal-dk) 100%);
+      color: #fff; border-radius: 11px 11px 0 0; padding: .9rem 1.2rem;
+    }
+
+    /* ── Instruments ── */
+    .instr-card {
+      border-left: 4px solid var(--teal);
+      border-radius: 8px;
+      background: #fff;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    .instr-title { font-weight: 700; color: var(--teal); font-size: 1.05rem; margin-bottom: .3rem; }
+    .instr-desc  { font-size: .83rem; color: var(--muted); margin-bottom: 1rem; }
+
+    /* SANE slider */
+    .sane-slider {
+      -webkit-appearance: none; width: 100%; height: 8px;
+      background: linear-gradient(to right, #ef4444, #f59e0b 50%, #10b981);
+      border-radius: 4px; outline: none; cursor: pointer;
+    }
+    .sane-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 26px; height: 26px;
+      border-radius: 50%; background: var(--teal);
+      box-shadow: 0 2px 6px rgba(0,0,0,.3); cursor: pointer;
+    }
+    .sane-val { font-size: 2.8rem; font-weight: 700; color: var(--teal); line-height: 1; }
+
+    /* NRS / button grids */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(11, 1fr);
+      gap: 4px;
+    }
+    .scale-btn {
+      border: 2px solid var(--border); border-radius: 7px;
+      background: #fff; font-weight: 600; font-size: .88rem;
+      padding: 8px 2px; cursor: pointer; transition: all .13s;
+      text-align: center;
+    }
+    .scale-btn:hover { transform: translateY(-2px); border-color: var(--teal); }
+    .scale-btn.sel   { background: var(--teal) !important; border-color: var(--teal) !important; color: #fff !important; transform: translateY(-2px); }
+
+    /* pain colours */
+    .pain-0  { border-color: #10b981; color: #10b981; }
+    .pain-1, .pain-2 { border-color: #6ee7b7; }
+    .pain-3, .pain-4 { border-color: #fbbf24; }
+    .pain-5, .pain-6 { border-color: #f97316; }
+    .pain-7, .pain-8 { border-color: #ef4444; }
+    .pain-9, .pain-10 { border-color: #991b1b; color: #991b1b; }
+
+    /* GPC */
+    .gpc-row {
+      display: flex; align-items: center;
+      padding: .6rem .9rem;
+      border: 2px solid var(--border); border-radius: 8px;
+      margin-bottom: .4rem; cursor: pointer; transition: all .13s;
+    }
+    .gpc-row:hover { border-color: var(--teal); background: var(--teal-lt); }
+    .gpc-row.sel   { border-color: var(--teal); background: var(--teal-lt); }
+    .gpc-badge {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; margin-right: .9rem; flex-shrink: 0;
+    }
+
+    /* PSFS */
+    .psfs-block {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 1rem; margin-bottom: .75rem; background: #fafafa;
+    }
+    .psfs-grid {
+      display: grid;
+      grid-template-columns: repeat(11, 1fr);
+      gap: 3px; margin-top: .5rem;
+    }
+
+    /* Patient cards */
+    .pat-card {
+      border: 2px solid var(--border); border-radius: 10px;
+      padding: 1rem; cursor: pointer; background: #fff;
+      transition: all .2s;
+    }
+    .pat-card:hover  { border-color: var(--teal); box-shadow: 0 4px 12px rgba(13,148,136,.15); }
+    .pat-card.active { border-color: var(--teal); background: var(--teal-lt); }
+
+    /* Chart container */
+    .chart-box { position: relative; height: 290px; }
+
+    /* Threshold hint */
+    .threshold {
+      font-size: .78rem; color: var(--muted);
+      background: #f8fafc; border-radius: 6px;
+      padding: .4rem .7rem; display: flex; align-items: center; gap: .4rem;
+    }
+
+    /* Summary */
+    .sum-card { border: 1px solid var(--border); border-radius: 10px; background: #fff; padding: 1rem; }
+
+    /* Util */
+    .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
+    .empty-state .bi { font-size: 2.8rem; display: block; margin-bottom: .75rem; }
+    .btn-primary   { background: var(--teal); border-color: var(--teal); }
+    .btn-primary:hover { background: var(--teal-dk); border-color: var(--teal-dk); }
+    .btn-outline-primary { color: var(--teal); border-color: var(--teal); }
+    .btn-outline-primary:hover { background: var(--teal); border-color: var(--teal); }
+    .text-primary { color: var(--teal) !important; }
+    .spinner-border { width: 1.2rem; height: 1.2rem; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<div class="app-header d-flex align-items-center justify-content-between">
+  <div>
+    <div class="app-logo"><i class="bi bi-activity me-2"></i>PAT_S</div>
+    <div class="app-sub">Physio-Akademie Tool Schulter</div>
+  </div>
+  <div id="hdrBadge" class="patient-badge d-none text-white">
+    <i class="bi bi-person-fill me-1"></i><span id="hdrName">–</span>
+  </div>
+</div>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<div class="top-nav">
+  <div class="container">
+    <ul class="nav" id="mainNav">
+      <li class="nav-item"><a class="nav-link active" data-tab="patients" href="#"><i class="bi bi-people me-1"></i>Patienten</a></li>
+      <li class="nav-item"><a class="nav-link" data-tab="entry" href="#"><i class="bi bi-plus-circle me-1"></i>Neue Messung</a></li>
+      <li class="nav-item"><a class="nav-link" data-tab="charts" href="#"><i class="bi bi-graph-up me-1"></i>Verlauf</a></li>
+      <li class="nav-item"><a class="nav-link" data-tab="data" href="#"><i class="bi bi-table me-1"></i>Daten</a></li>
+      <li class="nav-item"><a class="nav-link" data-tab="report" href="#"><i class="bi bi-file-earmark-text me-1"></i>Therapiebericht</a></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<div class="container py-4">
+
+  <!-- ── PATIENTS ── -->
+  <div id="tab-patients">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="fw-bold mb-0">Patientenverwaltung</h5>
+      <button class="btn btn-primary" onclick="openAddPatient()">
+        <i class="bi bi-plus-lg me-1"></i>Patient hinzufügen
+      </button>
+    </div>
+    <div id="patientList" class="row g-3">
+      <div class="col-12 text-center py-4"><span class="spinner-border text-primary"></span></div>
+    </div>
+  </div>
+
+  <!-- ── ENTRY ── -->
+  <div id="tab-entry" class="d-none">
+    <div id="warnEntry" class="alert alert-warning d-none">
+      <i class="bi bi-exclamation-triangle me-2"></i>Bitte zuerst einen Patienten auswählen.
+      <a href="#" class="alert-link ms-2" onclick="go('patients')">Zu Patienten</a>
+    </div>
+
+    <div id="entryBody">
+      <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+        <h5 class="fw-bold mb-0" id="entryTitle">Neue Messung erfassen</h5>
+        <div class="d-flex align-items-center gap-2">
+          <label class="fw-medium mb-0">Datum</label>
+          <input type="date" id="mDate" class="form-control" style="width:auto" />
+        </div>
+      </div>
+
+      <!-- SANE -->
+      <div class="instr-card">
+        <div class="instr-title"><i class="bi bi-bullseye me-2"></i>SANE – Single Assessment Numeric Evaluation</div>
+        <div class="instr-desc">
+          Wie würden Sie Ihre betroffene Schulter heute als Prozentsatz zur normalen Schulter bewerten
+          (auf einer Skala von 0 % bis 100 %, wobei 100 % normal bedeutet)?
+        </div>
+        <div class="row align-items-center g-3">
+          <div class="col-auto text-center" style="min-width:80px">
+            <div class="sane-val" id="saneVal">50</div>
+            <div class="text-muted small fw-medium">%</div>
+          </div>
+          <div class="col">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+              <span>0 %</span><span>50 %</span><span>100 % Normal</span>
+            </div>
+            <input type="range" class="sane-slider" id="saneSlider" min="0" max="100" value="50"
+                   oninput="document.getElementById('saneVal').textContent=this.value" />
+          </div>
+        </div>
+        <div class="mt-2 threshold"><i class="bi bi-info-circle text-primary"></i>Schwellenwert für relevante Veränderung: ±15 Punkte</div>
+      </div>
+
+      <!-- Schmerz NRS -->
+      <div class="instr-card">
+        <div class="instr-title"><i class="bi bi-thermometer-half me-2"></i>Schmerz NRS – Numerische Rating-Skala</div>
+        <div class="instr-desc">
+          Bewerten Sie Ihren Schmerz auf einer Skala von 0 (kein Schmerz) bis 10 (schlimmster vorstellbarer Schmerz).
+        </div>
+        <div class="btn-grid" id="painGrid"></div>
+        <div class="d-flex justify-content-between small mt-1">
+          <span style="color:#10b981;font-weight:600">◄ Kein Schmerz</span>
+          <span style="color:#991b1b;font-weight:600">Schlimmster Schmerz ►</span>
+        </div>
+        <div class="mt-2 threshold"><i class="bi bi-info-circle text-primary"></i>Schwellenwert für relevante Veränderung: ±2 Punkte</div>
+      </div>
+
+      <!-- GPC -->
+      <div class="instr-card">
+        <div class="instr-title"><i class="bi bi-arrow-left-right me-2"></i>GPC – Global Perceived Change</div>
+        <div class="instr-desc">Wie nehmen Sie die Gesamtveränderung Ihres Schulterproblems seit Therapiebeginn wahr?</div>
+        <div id="gpcGrid"></div>
+        <div class="mt-2 threshold"><i class="bi bi-info-circle text-primary"></i>Schwellenwert für relevante Veränderung: ±1 Stufe</div>
+      </div>
+
+      <!-- PSFS -->
+      <div class="instr-card">
+        <div class="instr-title"><i class="bi bi-person-check me-2"></i>PSFS – Patientenspezifische Funktionsskala</div>
+        <div class="instr-desc">
+          Benennen Sie bis zu 3 Aktivitäten, die Sie aufgrund Ihrer Beschwerden nicht oder nur eingeschränkt ausführen können,
+          und bewerten Sie jede auf einer Skala von 0 (gar nicht möglich) bis 10 (ohne Einschränkung).
+        </div>
+        <div id="psfsBlocks"></div>
+        <button class="btn btn-outline-primary btn-sm mt-1" id="addPsfsBtn" onclick="addPsfs()">
+          <i class="bi bi-plus-lg me-1"></i>Aktivität hinzufügen (max. 3)
+        </button>
+        <div class="mt-2 threshold"><i class="bi bi-info-circle text-primary"></i>Schwellenwert für relevante Veränderung: ±2 Punkte (Summenscore)</div>
+      </div>
+
+      <!-- Funktionstests -->
+      <div class="instr-card">
+        <div class="instr-title"><i class="bi bi-clipboard-data me-2"></i>Funktionstests (Therapeutensicht)</div>
+        <div class="instr-desc">Erfassen Sie die Ergebnisse Ihrer Funktionstests (ROM, Kraft, Ausdauer, Aktivitätstests …).</div>
+        <div id="ftRows"></div>
+        <button class="btn btn-outline-primary btn-sm mt-1" onclick="addFt()">
+          <i class="bi bi-plus-lg me-1"></i>Test hinzufügen
+        </button>
+      </div>
+
+      <!-- Notizen -->
+      <div class="instr-card">
+        <div class="instr-title"><i class="bi bi-journal-text me-2"></i>Notizen</div>
+        <textarea class="form-control" id="mNotes" rows="3" placeholder="Optionale Bemerkungen …"></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex gap-3 justify-content-end mb-4">
+        <button class="btn btn-outline-secondary" onclick="cancelEdit()" id="cancelEditBtn" style="display:none!important"><i class="bi bi-x-lg me-1"></i>Abbrechen</button>
+        <button class="btn btn-outline-secondary" onclick="resetForm()" id="resetBtn"><i class="bi bi-arrow-counterclockwise me-1"></i>Zurücksetzen</button>
+        <button class="btn btn-primary btn-lg px-4" onclick="saveMeasurement()" id="saveBtn"><i class="bi bi-save me-2"></i>Messung speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHARTS ── -->
+  <div id="tab-charts" class="d-none">
+    <div id="warnCharts" class="alert alert-warning d-none">
+      <i class="bi bi-exclamation-triangle me-2"></i>Bitte zuerst einen Patienten auswählen.
+      <a href="#" class="alert-link ms-2" onclick="go('patients')">Zu Patienten</a>
+    </div>
+    <div id="chartsBody">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="fw-bold mb-0">Verlauf &amp; Auswertung</h5>
+      </div>
+      <div id="summaryRow" class="row g-3 mb-4"></div>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-bullseye me-2"></i>SANE – Schultereinschätzung (%)</h6></div>
+            <div class="card-body"><div class="chart-box"><canvas id="chartSane"></canvas></div></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-thermometer-half me-2"></i>Schmerz NRS</h6></div>
+            <div class="card-body"><div class="chart-box"><canvas id="chartPain"></canvas></div></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-arrow-left-right me-2"></i>GPC – Gesamtveränderung</h6></div>
+            <div class="card-body"><div class="chart-box"><canvas id="chartGpc"></canvas></div></div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-person-check me-2"></i>PSFS – Funktionsskala</h6></div>
+            <div class="card-body" id="chartPsfsWrap"><div class="chart-box"><canvas id="chartPsfs"></canvas></div></div>
+          </div>
+        </div>
+        <div class="col-12" id="ftChartWrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DATA ── -->
+  <div id="tab-data" class="d-none">
+    <div id="warnData" class="alert alert-warning d-none">
+      <i class="bi bi-exclamation-triangle me-2"></i>Bitte zuerst einen Patienten auswählen.
+      <a href="#" class="alert-link ms-2" onclick="go('patients')">Zu Patienten</a>
+    </div>
+    <div id="dataBody">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="fw-bold mb-0">Messdaten</h5>
+        <button class="btn btn-outline-primary btn-sm" onclick="exportJson()"><i class="bi bi-download me-1"></i>JSON exportieren</button>
+      </div>
+      <div class="card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead style="background:var(--navy);color:#fff">
+              <tr>
+                <th>Datum</th><th>SANE (%)</th><th>NRS</th><th>GPC</th>
+                <th>PSFS ∑</th><th>Funktionstests</th><th>Notizen</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="dataBody2"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REPORT ── -->
+  <div id="tab-report" class="d-none">
+    <div id="warnReport" class="alert alert-warning d-none">
+      <i class="bi bi-exclamation-triangle me-2"></i>Bitte zuerst einen Patienten auswählen.
+      <a href="#" class="alert-link ms-2" onclick="go('patients')">Zu Patienten</a>
+    </div>
+
+    <div id="reportBody">
+
+      <!-- API-Key Einstellungen -->
+      <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between"
+             style="cursor:pointer;background:#f8fafc" onclick="toggleApiSettings()">
+          <span class="fw-bold"><i class="bi bi-gear me-2 text-primary"></i>OpenAI API-Einstellungen</span>
+          <div class="d-flex align-items-center gap-3">
+            <span id="apiStatus" class="badge bg-secondary small">Nicht konfiguriert</span>
+            <i class="bi bi-chevron-down" id="apiChevron"></i>
+          </div>
+        </div>
+        <div id="apiSettings" class="card-body" style="display:none">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+              <label class="form-label fw-medium">API-Schlüssel (OpenAI)</label>
+              <div class="input-group">
+                <input type="password" id="apiKeyInput" class="form-control font-monospace"
+                       placeholder="sk-..." autocomplete="off" />
+                <button class="btn btn-outline-secondary" type="button"
+                        onclick="toggleKeyVis()"><i class="bi bi-eye" id="eyeIcon"></i></button>
+              </div>
+              <div class="form-text">
+                Erhältlich unter <a href="#" onclick="return false">platform.openai.com/api-keys</a>.
+                Der Schlüssel wird lokal gespeichert (config.json).
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-medium">Modell</label>
+              <select class="form-select" id="modelSelect">
+                <option value="gpt-4o">GPT-4o (empfohlen)</option>
+                <option value="gpt-4o-mini">GPT-4o mini (günstiger)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <button class="btn btn-primary w-100" onclick="saveApiKey()">
+                <i class="bi bi-floppy me-1"></i>Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Berichtsoptionen -->
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-head-primary">
+              <h6 class="mb-0 fw-bold"><i class="bi bi-sliders me-2"></i>Berichtsoptionen</h6>
+            </div>
+            <div class="card-body d-flex flex-column gap-3">
+
+              <div>
+                <label class="form-label fw-medium small">Patient</label>
+                <input type="text" id="repPatientName" class="form-control" readonly
+                       style="background:#f8fafc" placeholder="Bitte Patienten wählen …" />
+              </div>
+
+              <div>
+                <label class="form-label fw-medium small">Messzeitraum</label>
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="date" id="repFrom" class="form-control form-control-sm" />
+                  <span class="text-muted">–</span>
+                  <input type="date" id="repTo" class="form-control form-control-sm" />
+                </div>
+                <div class="form-text">Leer lassen = alle Messungen</div>
+              </div>
+
+              <div>
+                <label class="form-label fw-medium small">Berichtsart</label>
+                <select class="form-select form-select-sm" id="repStyle">
+                  <option value="">Strukturierter Arztbrief (Standard)</option>
+                  <option value="Erstelle eine kurze Zusammenfassung in 3–5 Sätzen.">Kurzzusammenfassung</option>
+                  <option value="Erstelle den Bericht als Verlaufsnotiz (SOAP-Format: Subjektiv, Objektiv, Assessment, Plan).">SOAP-Format</option>
+                  <option value="Fokussiere besonders auf die Schmerzentwicklung und Funktionsverbesserung.">Fokus: Schmerz & Funktion</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="form-label fw-medium small">Zusätzliche Hinweise (optional)</label>
+                <textarea class="form-control form-control-sm" id="repInstructions" rows="3"
+                          placeholder="z.B. Bitte auf bevorstehende OP-Planung hinweisen …"></textarea>
+              </div>
+
+              <button class="btn btn-primary mt-auto" onclick="generateReport()" id="repBtn">
+                <i class="bi bi-magic me-2"></i>Bericht generieren
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bericht-Ausgabe -->
+        <div class="col-md-8">
+          <div class="card h-100">
+            <div class="card-head-primary d-flex align-items-center justify-content-between">
+              <h6 class="mb-0 fw-bold"><i class="bi bi-file-earmark-text me-2"></i>Therapiebericht</h6>
+              <div class="d-flex gap-2" id="repActions" style="display:none!important">
+                <button class="btn btn-sm btn-light" onclick="copyReport()" title="Kopieren">
+                  <i class="bi bi-clipboard"></i>
+                </button>
+                <button class="btn btn-sm btn-light" onclick="downloadReport()" title="Als .txt speichern">
+                  <i class="bi bi-download"></i>
+                </button>
+                <button class="btn btn-sm btn-light" onclick="printReport()" title="Drucken">
+                  <i class="bi bi-printer"></i>
+                </button>
+              </div>
+            </div>
+            <div class="card-body" style="min-height:400px">
+              <div id="repPlaceholder" class="empty-state">
+                <i class="bi bi-file-earmark-text"></i>
+                <p class="fw-medium">Noch kein Bericht generiert</p>
+                <p class="small">Wählen Sie links die Optionen und klicken Sie auf „Bericht generieren".</p>
+              </div>
+              <div id="repStream" class="d-none">
+                <!-- Streaming indicator -->
+                <div id="repStreaming" class="d-flex align-items-center gap-2 text-primary mb-3 d-none">
+                  <span class="spinner-border spinner-border-sm"></span>
+                  <span class="small fw-medium">Bericht wird generiert …</span>
+                </div>
+                <!-- Report text -->
+                <div id="repText"
+                     style="white-space:pre-wrap;font-family:'Segoe UI',sans-serif;font-size:.92rem;line-height:1.7;color:#1e293b"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /reportBody -->
+  </div>
+
+</div><!-- /container -->
+
+<!-- ── ADD PATIENT MODAL ── -->
+<div class="modal fade" id="addPatModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Patient hinzufügen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label fw-medium">Name / Patientencode *</label>
+          <input type="text" id="pName" class="form-control" placeholder="z.B. Müller, Hans oder P001" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Diagnose</label>
+          <input type="text" id="pDiag" class="form-control" placeholder="z.B. Rotatorenmanschettenläsion rechts" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button class="btn btn-primary" onclick="savePatient()"><i class="bi bi-person-plus me-1"></i>Hinzufügen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:9999">
+  <div id="toast" class="toast text-white border-0">
+    <div class="d-flex">
+      <div class="toast-body fw-medium" id="toastMsg">OK</div>
+      <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<datalist id="unitsDl">
+  <option value="°"/><option value="cm"/><option value="kg"/><option value="N"/>
+  <option value="Wdh."/><option value="sec"/><option value="%"/><option value="m"/>
+</datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+const S = {
+  patient:      null,
+  measurements: [],
+  charts:       {},
+  painSel:      null,
+  gpcSel:       null,
+  psfs:         [],   // [{name, score}]
+  editId:       null, // id of measurement being edited, or null for new
+};
+
+const GPC_OPTS = [
+  { v:  3, label: 'Die Schulter ist wieder vollständig funktionstüchtig.', color: '#059669' },
+  { v:  2, label: 'Deutliche Verbesserung seit Therapiebeginn.',           color: '#10b981' },
+  { v:  1, label: 'Geringe Verbesserung seit Therapiebeginn.',             color: '#6ee7b7' },
+  { v:  0, label: 'Unveränderte Situation seit Therapiebeginn.',           color: '#94a3b8' },
+  { v: -1, label: 'Geringe Verschlechterung seit Therapiebeginn.',         color: '#fca5a5' },
+  { v: -2, label: 'Deutliche Verschlechterung seit Therapiebeginn.',       color: '#ef4444' },
+  { v: -3, label: 'Die Schulter ist schlechter als je zuvor.',             color: '#991b1b' },
+];
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('mDate').value = today();
+  buildPainGrid();
+  buildGpcGrid();
+  addPsfs();
+  addFt();
+  loadPatients();
+
+  document.querySelectorAll('[data-tab]').forEach(a => {
+    a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.tab); });
+  });
+});
+
+function today() { return new Date().toISOString().slice(0, 10); }
+
+// ══════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════
+function go(tab) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('d-none'));
+  document.getElementById('tab-' + tab).classList.remove('d-none');
+  document.querySelectorAll('[data-tab]').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+
+  if (tab === 'entry') {
+    document.getElementById('warnEntry').classList.toggle('d-none', !!S.patient);
+    document.getElementById('entryBody').classList.toggle('d-none', !S.patient);
+    if (S.patient && !S.editId) prefillPsfsFromFirst();
+  }
+  if (tab === 'charts') {
+    document.getElementById('warnCharts').classList.toggle('d-none', !!S.patient);
+    document.getElementById('chartsBody').classList.toggle('d-none', !S.patient);
+    if (S.patient) renderCharts();
+  }
+  if (tab === 'data') {
+    document.getElementById('warnData').classList.toggle('d-none', !!S.patient);
+    document.getElementById('dataBody').classList.toggle('d-none', !S.patient);
+    if (S.patient) renderDataTable();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  PATIENTS
+// ══════════════════════════════════════════════════════
+async function loadPatients() {
+  const list = document.getElementById('patientList');
+  list.innerHTML = '<div class="col-12 text-center py-4"><span class="spinner-border text-primary"></span></div>';
+  const pts = await api('/api/patients');
+  if (!pts.length) {
+    list.innerHTML = `<div class="col-12"><div class="empty-state">
+      <i class="bi bi-person-x"></i>
+      <p class="fw-medium">Noch keine Patienten</p>
+      <p class="small">Fügen Sie Ihren ersten Patienten hinzu.</p>
+    </div></div>`;
+    return;
+  }
+  list.innerHTML = pts.map(p => `
+    <div class="col-md-4 col-sm-6">
+      <div class="pat-card ${S.patient?.id === p.id ? 'active' : ''}" onclick="selectPatient(${p.id},'${esc(p.name)}','${esc(p.diagnosis||'')}')">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-bold"><i class="bi bi-person-circle me-2 text-primary"></i>${p.name}</div>
+            ${p.diagnosis ? `<div class="small text-muted mt-1">${p.diagnosis}</div>` : ''}
+            <div class="small text-muted mt-1"><i class="bi bi-calendar3 me-1"></i>${fmtDate(p.created_at)}</div>
+          </div>
+          <div class="d-flex gap-1 align-items-center">
+            ${S.patient?.id === p.id ? '<span class="badge bg-primary">Aktiv</span>' : ''}
+            <button class="btn btn-sm btn-outline-danger" onclick="delPatient(event,${p.id})"><i class="bi bi-trash"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectPatient(id, name, diag) {
+  S.patient = { id, name, diag };
+  document.getElementById('hdrBadge').classList.remove('d-none');
+  document.getElementById('hdrName').textContent = name;
+  loadMeasurements();
+  loadPatients();
+  toast(`Patient „${name}" ausgewählt`, 'success');
+}
+
+function openAddPatient() {
+  document.getElementById('pName').value = '';
+  document.getElementById('pDiag').value = '';
+  new bootstrap.Modal(document.getElementById('addPatModal')).show();
+}
+
+async function savePatient() {
+  const name = document.getElementById('pName').value.trim();
+  if (!name) { toast('Name erforderlich', 'danger'); return; }
+  await api('/api/patients', 'POST', { name, diagnosis: document.getElementById('pDiag').value.trim() });
+  bootstrap.Modal.getInstance(document.getElementById('addPatModal')).hide();
+  loadPatients();
+  toast('Patient hinzugefügt', 'success');
+}
+
+async function delPatient(e, id) {
+  e.stopPropagation();
+  if (!confirm('Patient wirklich löschen? Alle Messungen gehen verloren.')) return;
+  await api(`/api/patients/${id}`, 'DELETE');
+  if (S.patient?.id === id) {
+    S.patient = null; S.measurements = [];
+    document.getElementById('hdrBadge').classList.add('d-none');
+  }
+  loadPatients();
+  toast('Patient gelöscht', 'warning');
+}
+
+// ══════════════════════════════════════════════════════
+//  MEASUREMENTS
+// ══════════════════════════════════════════════════════
+async function loadMeasurements() {
+  if (!S.patient) return;
+  S.measurements = await api(`/api/measurements?patient_id=${S.patient.id}`);
+}
+
+// ══════════════════════════════════════════════════════
+//  BUILD INSTRUMENTS
+// ══════════════════════════════════════════════════════
+function buildPainGrid() {
+  document.getElementById('painGrid').innerHTML = Array.from({ length: 11 }, (_, i) =>
+    `<button type="button" class="scale-btn pain-${i}" data-v="${i}" onclick="selPain(${i})">${i}</button>`
+  ).join('');
+}
+
+function selPain(v) {
+  S.painSel = v;
+  document.querySelectorAll('#painGrid .scale-btn').forEach(b => b.classList.toggle('sel', +b.dataset.v === v));
+}
+
+function buildGpcGrid() {
+  document.getElementById('gpcGrid').innerHTML = GPC_OPTS.map(o => `
+    <div class="gpc-row" data-v="${o.v}" onclick="selGpc(${o.v})">
+      <div class="gpc-badge" style="background:${o.color}22;color:${o.color};border:2px solid ${o.color}">
+        ${o.v > 0 ? '+' : ''}${o.v}
+      </div>
+      <span>${o.label}</span>
+    </div>
+  `).join('');
+}
+
+function selGpc(v) {
+  S.gpcSel = v;
+  document.querySelectorAll('#gpcGrid .gpc-row').forEach(r => r.classList.toggle('sel', +r.dataset.v === v));
+}
+
+// ── PSFS ──
+let psfsCount = 0;
+function addPsfs() {
+  if (S.psfs.length >= 3) return;
+  const idx = psfsCount++;
+  S.psfs.push({ name: '', score: 5 });
+  const ui = S.psfs.length - 1; // index into S.psfs
+
+  const wrap = document.createElement('div');
+  wrap.className = 'psfs-block';
+  wrap.id = `psfsB-${idx}`;
+  wrap.dataset.idx = ui;
+  wrap.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <label class="fw-medium small">Aktivität ${ui + 1}</label>
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="removePsfs('${idx}')"><i class="bi bi-trash"></i></button>
+    </div>
+    <input type="text" class="form-control form-control-sm mb-2"
+           placeholder="Aktivitätsname (z.B. Haare kämmen, Tennis, Schlafen)"
+           oninput="S.psfs[${ui}].name=this.value" />
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="text-muted small">0</span>
+      <div class="psfs-grid flex-grow-1" id="psfsG-${idx}"></div>
+      <span class="text-muted small">10</span>
+    </div>
+    <div class="d-flex justify-content-between small text-muted">
+      <span>Gar nicht möglich</span><span>Ohne Einschränkung</span>
+    </div>
+  `;
+  document.getElementById('psfsBlocks').appendChild(wrap);
+
+  // build score buttons
+  document.getElementById(`psfsG-${idx}`).innerHTML = Array.from({ length: 11 }, (_, i) =>
+    `<button type="button" class="scale-btn${i === 5 ? ' sel' : ''}" data-v="${i}"
+             onclick="selPsfs(${ui},'${idx}',${i})">${i}</button>`
+  ).join('');
+
+  if (S.psfs.length >= 3) document.getElementById('addPsfsBtn').classList.add('d-none');
+}
+
+function selPsfs(ui, idx, v) {
+  S.psfs[ui].score = v;
+  document.querySelectorAll(`#psfsG-${idx} .scale-btn`).forEach(b => b.classList.toggle('sel', +b.dataset.v === v));
+}
+
+function removePsfs(idx) {
+  const block = document.getElementById(`psfsB-${idx}`);
+  const ui = +block.dataset.idx;
+  S.psfs.splice(ui, 1);
+  block.remove();
+  document.getElementById('addPsfsBtn').classList.remove('d-none');
+  // re-index remaining blocks
+  document.querySelectorAll('.psfs-block').forEach((b, i) => {
+    b.dataset.idx = i;
+    b.querySelector('label').textContent = `Aktivität ${i + 1}`;
+  });
+}
+
+// ── Function Tests ──
+let ftCount = 0;
+function addFt() {
+  const id = ftCount++;
+  const row = document.createElement('div');
+  row.className = 'd-flex gap-2 mb-2 align-items-center';
+  row.id = `ft-${id}`;
+  row.innerHTML = `
+    <input type="text"   class="form-control"       placeholder="Testname (z.B. Flexion ROM, 1RM Abduktion)" style="flex:3">
+    <input type="number" class="form-control"       placeholder="Wert" step="0.1" style="flex:1;min-width:80px">
+    <input type="text"   class="form-control"       placeholder="Einheit" list="unitsDl" style="flex:1;max-width:90px">
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('ft-${id}').remove()">
+      <i class="bi bi-trash"></i>
+    </button>
+  `;
+  document.getElementById('ftRows').appendChild(row);
+}
+
+function collectFts() {
+  return Array.from(document.getElementById('ftRows').children)
+    .map(row => {
+      const inputs = row.querySelectorAll('input');
+      return { test_name: inputs[0].value.trim(), test_value: inputs[1].value, test_unit: inputs[2].value.trim() };
+    })
+    .filter(t => t.test_name && t.test_value !== '');
+}
+
+// ══════════════════════════════════════════════════════
+//  SAVE MEASUREMENT
+// ══════════════════════════════════════════════════════
+async function saveMeasurement() {
+  if (!S.patient) { toast('Kein Patient ausgewählt', 'danger'); go('patients'); return; }
+  const date = document.getElementById('mDate').value;
+  if (!date) { toast('Bitte Datum eingeben', 'danger'); return; }
+
+  const payload = {
+    patient_id:     S.patient.id,
+    date,
+    sane:           parseInt(document.getElementById('saneSlider').value),
+    pain_nrs:       S.painSel,
+    gpc:            S.gpcSel,
+    notes:          document.getElementById('mNotes').value,
+    psfs:           S.psfs.filter(a => a.name.trim()).map(a => ({ activity_name: a.name, score: a.score })),
+    function_tests: collectFts(),
+  };
+
+  let res;
+  if (S.editId) {
+    res = await api(`/api/measurements/${S.editId}`, 'PUT', payload);
+  } else {
+    res = await api('/api/measurements', 'POST', payload);
+  }
+
+  if (res.success) {
+    const wasEdit = !!S.editId;
+    S.editId = null;
+    document.getElementById('entryTitle').textContent      = 'Neue Messung erfassen';
+    document.getElementById('saveBtn').innerHTML           = '<i class="bi bi-save me-2"></i>Messung speichern';
+    document.getElementById('cancelEditBtn').style.cssText = 'display:none!important';
+    document.getElementById('resetBtn').style.display     = '';
+    toast(wasEdit ? 'Messung aktualisiert!' : 'Messung gespeichert!', 'success');
+    await loadMeasurements();
+    resetForm();
+    go('charts');
+  } else {
+    toast('Fehler beim Speichern', 'danger');
+  }
+}
+
+function resetForm() {
+  document.getElementById('mDate').value = today();
+  document.getElementById('saneSlider').value = 50;
+  document.getElementById('saneVal').textContent = '50';
+  S.painSel = null; S.gpcSel = null; S.psfs = []; psfsCount = 0;
+  document.querySelectorAll('#painGrid .scale-btn').forEach(b => b.classList.remove('sel'));
+  document.querySelectorAll('#gpcGrid .gpc-row').forEach(r => r.classList.remove('sel'));
+  document.getElementById('psfsBlocks').innerHTML = '';
+  document.getElementById('addPsfsBtn').classList.remove('d-none');
+  addPsfs();
+  document.getElementById('ftRows').innerHTML = ''; ftCount = 0; addFt();
+  document.getElementById('mNotes').value = '';
+}
+
+function prefillPsfsFromFirst() {
+  const first = S.measurements[0];
+  if (!first) return;
+
+  // PSFS — only prefill if no user input yet
+  if (first.psfs?.length && !S.psfs.some(p => p.name.trim())) {
+    document.getElementById('psfsBlocks').innerHTML = '';
+    S.psfs = []; psfsCount = 0;
+    document.getElementById('addPsfsBtn').classList.remove('d-none');
+    for (const p of first.psfs) {
+      addPsfs();
+      const ui  = S.psfs.length - 1;
+      const idx = psfsCount - 1;
+      S.psfs[ui].name = p.activity_name;
+      document.querySelector(`#psfsB-${idx} input`).value = p.activity_name;
+    }
+  }
+
+  // Funktionstests — only prefill if current rows are all empty
+  const ftRows = document.getElementById('ftRows');
+  const hasUserFt = Array.from(ftRows.querySelectorAll('input[type=text]')).some(i => i.value.trim());
+  if (first.function_tests?.length && !hasUserFt) {
+    ftRows.innerHTML = ''; ftCount = 0;
+    for (const t of first.function_tests) {
+      addFt();
+      const row    = document.getElementById(`ft-${ftCount - 1}`);
+      const inputs = row.querySelectorAll('input');
+      inputs[0].value = t.test_name;
+      inputs[2].value = t.test_unit;
+      // value (inputs[1]) bleibt leer — muss neu gemessen werden
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  CHARTS
+// ══════════════════════════════════════════════════════
+async function renderCharts() {
+  await loadMeasurements();
+  const D = S.measurements;
+
+  if (!D.length) {
+    document.getElementById('chartsBody').innerHTML = `
+      <div class="empty-state">
+        <i class="bi bi-graph-up"></i>
+        <p class="fw-medium">Noch keine Messungen vorhanden</p>
+        <button class="btn btn-primary mt-2" onclick="go('entry')"><i class="bi bi-plus-lg me-1"></i>Neue Messung</button>
+      </div>`;
+    return;
+  }
+
+  // destroy old charts
+  Object.values(S.charts).forEach(c => c?.destroy());
+  S.charts = {};
+
+  renderSummary(D);
+
+  const labels = D.map(m => fmtDate(m.date));
+  const teal = '#0d9488', red = '#ef4444';
+
+  const baseOpts = (yMin, yMax, yLabel) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { min: yMin, max: yMax, title: { display: true, text: yLabel }, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } },
+    },
+  });
+
+  // SANE
+  S.charts.sane = new Chart(document.getElementById('chartSane'), {
+    type: 'line',
+    data: { labels, datasets: [ds('SANE (%)', D.map(m => m.sane), teal)] },
+    options: { ...baseOpts(0, 100, '%'),
+      plugins: { legend: { display: false },
+        annotation: { annotations: { thr: thresholdBand(0, 100) } } } },
+  });
+
+  // Pain
+  S.charts.pain = new Chart(document.getElementById('chartPain'), {
+    type: 'line',
+    data: { labels, datasets: [ds('Schmerz NRS', D.map(m => m.pain_nrs), red)] },
+    options: baseOpts(0, 10, 'NRS 0–10'),
+  });
+
+  // GPC
+  const gpcColors = D.map(m => {
+    if (m.gpc >= 2) return '#10b981';
+    if (m.gpc === 1) return '#6ee7b7';
+    if (m.gpc === 0) return '#94a3b8';
+    if (m.gpc === -1) return '#fca5a5';
+    return '#ef4444';
+  });
+  S.charts.gpc = new Chart(document.getElementById('chartGpc'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'GPC', data: D.map(m => m.gpc), backgroundColor: gpcColors, borderRadius: 6 }] },
+    options: { ...baseOpts(-3, 3, 'GPC –3 … +3'),
+      plugins: { legend: { display: false } },
+      scales: { y: { min: -3, max: 3, ticks: { callback: v => v > 0 ? `+${v}` : v }, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } } },
+  });
+
+  // PSFS
+  const actNames = [...new Set(D.flatMap(m => (m.psfs || []).map(p => p.activity_name)))];
+  const palette = ['#0d9488', '#6366f1', '#f59e0b'];
+
+  if (actNames.length) {
+    const wrap = document.getElementById('chartPsfsWrap');
+    if (!document.getElementById('chartPsfs')) {
+      wrap.innerHTML = '<div class="chart-box"><canvas id="chartPsfs"></canvas></div>';
+    }
+    S.charts.psfs = new Chart(document.getElementById('chartPsfs'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: actNames.map((name, i) => ({
+          label: name,
+          data: D.map(m => (m.psfs || []).find(p => p.activity_name === name)?.score ?? null),
+          borderColor: palette[i % 3], backgroundColor: palette[i % 3] + '22',
+          fill: false, tension: 0.3, pointRadius: 6, spanGaps: true,
+        })),
+      },
+      options: { ...baseOpts(0, 10, 'Score 0–10'), plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 12 } } } } },
+    });
+  } else {
+    document.getElementById('chartPsfsWrap').innerHTML =
+      '<p class="text-muted text-center py-4 small">Keine PSFS-Aktivitäten erfasst</p>';
+  }
+
+  // Function tests (grouped by test name)
+  const ftNames = [...new Set(D.flatMap(m => (m.function_tests || []).map(t => t.test_name)))];
+  const ftWrap = document.getElementById('ftChartWrap');
+  ftWrap.innerHTML = '';
+  if (ftNames.length) {
+    ftWrap.innerHTML = '<h6 class="fw-bold mb-3 mt-2">Funktionstests – Verlauf</h6><div class="row g-4" id="ftChartsInner"></div>';
+    const inner = document.getElementById('ftChartsInner');
+    ftNames.forEach((name, i) => {
+      const canvasId = `ftChart-${i}`;
+      const col = document.createElement('div');
+      col.className = 'col-md-6';
+      col.innerHTML = `
+        <div class="card">
+          <div class="card-head-primary"><h6 class="mb-0 fw-bold">${name}</h6></div>
+          <div class="card-body"><div class="chart-box"><canvas id="${canvasId}"></canvas></div></div>
+        </div>`;
+      inner.appendChild(col);
+
+      const ftData = D.map(m => (m.function_tests || []).find(t => t.test_name === name)?.test_value ?? null);
+      const unit = D.flatMap(m => m.function_tests || []).find(t => t.test_name === name)?.test_unit || '';
+      S.charts[`ft-${i}`] = new Chart(document.getElementById(canvasId), {
+        type: 'line',
+        data: { labels, datasets: [ds(name, ftData, palette[i % 3])] },
+        options: { ...baseOpts(undefined, undefined, unit || name), plugins: { legend: { display: false } } },
+      });
+    });
+  }
+}
+
+function ds(label, data, color) {
+  return { label, data, borderColor: color, backgroundColor: color + '20',
+           fill: true, tension: 0.3, pointRadius: 6, pointBackgroundColor: color, spanGaps: true };
+}
+
+function thresholdBand() { return {}; } // placeholder (chartjs-plugin-annotation optional)
+
+// ── Summary Cards ──
+function renderSummary(D) {
+  const row = document.getElementById('summaryRow');
+  if (D.length < 2) {
+    row.innerHTML = `<div class="col-12"><div class="alert alert-info mb-0">
+      <i class="bi bi-info-circle me-2"></i>Mindestens 2 Messungen für Verlaufsvergleich erforderlich.
+    </div></div>`;
+    return;
+  }
+  const first = D[0], last = D[D.length - 1];
+  const metrics = [
+    { label: 'SANE', icon: 'bi-bullseye', f: first.sane, l: last.sane, thr: 15, unit: '%', up: true },
+    { label: 'Schmerz NRS', icon: 'bi-thermometer-half', f: first.pain_nrs, l: last.pain_nrs, thr: 2, unit: '/10', up: false },
+    { label: 'GPC', icon: 'bi-arrow-left-right', f: first.gpc, l: last.gpc, thr: 1, unit: '', up: true },
+  ];
+  row.innerHTML = metrics.map(m => {
+    if (m.f == null || m.l == null) return '';
+    const diff = m.l - m.f;
+    const better = m.up ? diff > 0 : diff < 0;
+    const sig = Math.abs(diff) >= m.thr;
+    let cls = 'text-warning', ico = 'bi-dash-circle', txt = 'Unverändert';
+    if (sig) { cls = better ? 'text-success' : 'text-danger'; ico = better ? 'bi-arrow-up-circle-fill' : 'bi-arrow-down-circle-fill'; txt = better ? 'Verbessert' : 'Verschlechtert'; }
+    return `<div class="col-md-4">
+      <div class="sum-card h-100">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi ${m.icon} text-primary" style="font-size:1.2rem"></i>
+          <span class="fw-bold text-muted small">${m.label}</span>
+        </div>
+        <div class="d-flex justify-content-between align-items-end">
+          <div><div class="small text-muted">Eingang</div><div class="fw-bold fs-5">${m.f}${m.unit}</div></div>
+          <i class="bi bi-arrow-right text-muted"></i>
+          <div class="text-end"><div class="small text-muted">Aktuell</div><div class="fw-bold fs-5">${m.l}${m.unit}</div></div>
+        </div>
+        <hr class="my-2">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="${cls} fw-medium"><i class="bi ${ico} me-1"></i>${txt}</span>
+          <span class="badge ${better && sig ? 'bg-success' : !sig ? 'bg-secondary' : 'bg-danger'}">${diff > 0 ? '+' : ''}${diff}</span>
+        </div>
+        ${!sig ? `<div class="small text-muted mt-1">Schwellenwert ±${m.thr} nicht erreicht</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════
+//  DATA TABLE
+// ══════════════════════════════════════════════════════
+async function renderDataTable() {
+  await loadMeasurements();
+  const D = S.measurements;
+  const tbody = document.getElementById('dataBody2');
+  if (!D.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Keine Messungen vorhanden</td></tr>';
+    return;
+  }
+  tbody.innerHTML = D.map(m => {
+    const psfsSum = m.psfs?.reduce((s, p) => s + p.score, 0) ?? '–';
+    const gOpt = GPC_OPTS.find(o => o.v === m.gpc);
+    const ftStr = (m.function_tests || []).map(t => `${t.test_name}: ${t.test_value} ${t.test_unit}`).join(', ') || '–';
+    return `<tr>
+      <td class="fw-medium">${fmtDate(m.date)}</td>
+      <td>${m.sane ?? '–'}%</td>
+      <td><span class="badge" style="background:${painColor(m.pain_nrs)}">${m.pain_nrs ?? '–'}/10</span></td>
+      <td>${m.gpc != null ? `<span class="fw-medium" style="color:${gOpt?.color}">${m.gpc > 0 ? '+' : ''}${m.gpc}</span>` : '–'}</td>
+      <td>${psfsSum}</td>
+      <td class="small text-muted" style="max-width:200px;white-space:normal">${ftStr}</td>
+      <td class="text-muted small" style="max-width:150px;white-space:normal">${m.notes || '–'}</td>
+      <td class="d-flex gap-1">
+        <button class="btn btn-sm btn-outline-secondary" onclick="editMeas(${m.id})" title="Bearbeiten"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-danger"    onclick="delMeas(${m.id})"  title="Löschen"><i class="bi bi-trash"></i></button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function delMeas(id) {
+  if (!confirm('Messung wirklich löschen?')) return;
+  await api(`/api/measurements/${id}`, 'DELETE');
+  await loadMeasurements();
+  renderDataTable();
+  toast('Messung gelöscht', 'warning');
+}
+
+async function editMeas(id) {
+  const m = S.measurements.find(x => x.id === id);
+  if (!m) return;
+
+  S.editId = id;
+
+  // Reset form first, then fill with existing data
+  resetForm();
+
+  document.getElementById('mDate').value         = m.date;
+  document.getElementById('saneSlider').value    = m.sane ?? 50;
+  document.getElementById('saneVal').textContent = m.sane ?? 50;
+
+  if (m.pain_nrs != null) selPain(m.pain_nrs);
+  if (m.gpc     != null) selGpc(m.gpc);
+
+  // PSFS — remove the default empty block, then fill
+  document.getElementById('psfsBlocks').innerHTML = '';
+  S.psfs = []; psfsCount = 0;
+  for (const p of (m.psfs || [])) {
+    addPsfs();
+    const ui  = S.psfs.length - 1;
+    const idx = psfsCount - 1;
+    S.psfs[ui].name  = p.activity_name;
+    S.psfs[ui].score = p.score;
+    document.querySelector(`#psfsB-${idx} input`).value = p.activity_name;
+    selPsfs(ui, idx, p.score);
+  }
+  if (!m.psfs?.length) addPsfs();
+
+  // Function tests
+  document.getElementById('ftRows').innerHTML = ''; ftCount = 0;
+  for (const t of (m.function_tests || [])) {
+    addFt();
+    const row    = document.getElementById(`ft-${ftCount - 1}`);
+    const inputs = row.querySelectorAll('input');
+    inputs[0].value = t.test_name;
+    inputs[1].value = t.test_value;
+    inputs[2].value = t.test_unit;
+  }
+  if (!m.function_tests?.length) addFt();
+
+  document.getElementById('mNotes').value = m.notes || '';
+
+  // UI: switch to edit mode
+  document.getElementById('entryTitle').textContent      = 'Messung bearbeiten';
+  document.getElementById('saveBtn').innerHTML           = '<i class="bi bi-save me-2"></i>Änderungen speichern';
+  document.getElementById('cancelEditBtn').style.cssText = '';
+  document.getElementById('resetBtn').style.display     = 'none';
+
+  go('entry');
+}
+
+function cancelEdit() {
+  S.editId = null;
+  resetForm();
+  document.getElementById('entryTitle').textContent      = 'Neue Messung erfassen';
+  document.getElementById('saveBtn').innerHTML           = '<i class="bi bi-save me-2"></i>Messung speichern';
+  document.getElementById('cancelEditBtn').style.cssText = 'display:none!important';
+  document.getElementById('resetBtn').style.display     = '';
+  go('data');
+}
+
+// ══════════════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════════════
+async function exportJson() {
+  if (!S.patient) return;
+  const data = await api(`/api/export/${S.patient.id}`);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `PAT_S_${S.patient.name}_${today()}.json`,
+  });
+  a.click();
+}
+
+// ══════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════
+async function api(url, method = 'GET', body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  return res.json();
+}
+
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  el.className = `toast text-white border-0 bg-${type}`;
+  document.getElementById('toastMsg').textContent = msg;
+  new bootstrap.Toast(el, { delay: 3000 }).show();
+}
+
+function fmtDate(s) {
+  if (!s) return '–';
+  const d = new Date(s.includes('T') ? s : s + 'T00:00:00');
+  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function painColor(v) {
+  if (v == null) return '#94a3b8';
+  if (v <= 2) return '#10b981';
+  if (v <= 4) return '#f59e0b';
+  if (v <= 6) return '#f97316';
+  return '#ef4444';
+}
+
+function esc(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ══════════════════════════════════════════════════════
+//  REPORT TAB
+// ══════════════════════════════════════════════════════
+
+// Extend go() to handle report tab
+const _goOrig = go;
+// Override navigation to also handle report tab
+document.querySelectorAll('[data-tab]').forEach(a => {
+  a.addEventListener('click', e => {
+    if (a.dataset.tab === 'report') {
+      e.preventDefault();
+      openReportTab();
+    }
+  });
+});
+
+function openReportTab() {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('d-none'));
+  document.getElementById('tab-report').classList.remove('d-none');
+  document.querySelectorAll('[data-tab]').forEach(a => a.classList.toggle('active', a.dataset.tab === 'report'));
+
+  const hasPatient = !!S.patient;
+  document.getElementById('warnReport').classList.toggle('d-none', hasPatient);
+  document.getElementById('reportBody').classList.toggle('d-none', !hasPatient);
+
+  if (hasPatient) {
+    document.getElementById('repPatientName').value = S.patient.name;
+    // fill date range from existing measurements
+    if (S.measurements.length) {
+      document.getElementById('repFrom').value = S.measurements[0].date;
+      document.getElementById('repTo').value   = S.measurements[S.measurements.length - 1].date;
+    }
+    checkApiStatus();
+  }
+}
+
+async function checkApiStatus() {
+  const cfg = await api('/api/config');
+  const badge = document.getElementById('apiStatus');
+  if (cfg.has_key) {
+    badge.textContent = `Konfiguriert (${cfg.key_preview})`;
+    badge.className = 'badge bg-success small';
+    document.getElementById('modelSelect').value = cfg.model || 'gpt-4o';
+  } else {
+    badge.textContent = 'Nicht konfiguriert';
+    badge.className = 'badge bg-danger small';
+    // auto-open settings if no key
+    document.getElementById('apiSettings').style.display = 'block';
+    document.getElementById('apiChevron').className = 'bi bi-chevron-up';
+  }
+}
+
+function toggleApiSettings() {
+  const el = document.getElementById('apiSettings');
+  const ch = document.getElementById('apiChevron');
+  const open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  ch.className = open ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+}
+
+function toggleKeyVis() {
+  const inp = document.getElementById('apiKeyInput');
+  const ico = document.getElementById('eyeIcon');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  ico.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+}
+
+async function saveApiKey() {
+  const key   = document.getElementById('apiKeyInput').value.trim();
+  const model = document.getElementById('modelSelect').value;
+  if (!key) { toast('Bitte API-Schlüssel eingeben', 'danger'); return; }
+  await api('/api/config', 'POST', { openai_key: key, model });
+  document.getElementById('apiKeyInput').value = '';
+  await checkApiStatus();
+  // close settings panel
+  document.getElementById('apiSettings').style.display = 'none';
+  document.getElementById('apiChevron').className = 'bi bi-chevron-down';
+  toast('API-Schlüssel gespeichert', 'success');
+}
+
+async function generateReport() {
+  if (!S.patient) { toast('Kein Patient ausgewählt', 'danger'); return; }
+
+  const btn = document.getElementById('repBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generiere …';
+
+  // Show streaming area, clear old text
+  document.getElementById('repPlaceholder').classList.add('d-none');
+  document.getElementById('repStream').classList.remove('d-none');
+  document.getElementById('repStreaming').classList.remove('d-none');
+  document.getElementById('repText').textContent = '';
+  document.getElementById('repActions').style.display = 'none';
+
+  const style   = document.getElementById('repStyle').value;
+  const custom  = document.getElementById('repInstructions').value.trim();
+  const instructions = [style, custom].filter(Boolean).join(' ');
+
+  try {
+    const res = await fetch('/api/generate-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_id:   S.patient.id,
+        instructions,
+        date_from: document.getElementById('repFrom').value || null,
+        date_to:   document.getElementById('repTo').value   || null,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      toast(err.error || 'Fehler bei der Berichtgenerierung', 'danger');
+      resetRepBtn(btn);
+      return;
+    }
+
+    // Read SSE stream
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    const repEl   = document.getElementById('repText');
+    let   buf     = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop(); // keep incomplete line
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break;
+        try {
+          const obj = JSON.parse(raw);
+          if (obj.error) { toast(obj.error, 'danger'); break; }
+          if (obj.t) repEl.textContent += obj.t;
+        } catch { /* ignore parse errors */ }
+      }
+    }
+
+    // Show action buttons
+    document.getElementById('repActions').style.removeProperty('display');
+    document.getElementById('repStreaming').classList.add('d-none');
+
+  } catch (err) {
+    toast('Verbindungsfehler: ' + err.message, 'danger');
+  } finally {
+    resetRepBtn(btn);
+  }
+}
+
+function resetRepBtn(btn) {
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-magic me-2"></i>Bericht generieren';
+  document.getElementById('repStreaming').classList.add('d-none');
+}
+
+function copyReport() {
+  const text = document.getElementById('repText').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('In Zwischenablage kopiert', 'success'));
+}
+
+function downloadReport() {
+  const text = document.getElementById('repText').textContent;
+  const name = S.patient?.name || 'Patient';
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `Therapiebericht_${name}_${today()}.txt`,
+  });
+  a.click();
+  toast('Bericht heruntergeladen', 'success');
+}
+
+function printReport() {
+  const text = document.getElementById('repText').textContent;
+  const name = S.patient?.name || 'Patient';
+  const diag = S.patient?.diagnosis || '';
+  const date = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const win  = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html lang="de"><head>
+    <meta charset="UTF-8"><title>Therapiebericht – ${name}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 6.2cm 2.5cm 4cm 2.5cm;
+      }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        color: #000;
+        margin: 0;
+      }
+      .betreff {
+        font-weight: bold;
+        margin-bottom: 0.6cm;
+        font-size: 11pt;
+      }
+      .meta-line {
+        font-size: 9.5pt;
+        color: #333;
+        margin-bottom: 0.4cm;
+      }
+      .divider {
+        border: none;
+        border-top: 0.5pt solid #aaa;
+        margin: 0.4cm 0 0.6cm 0;
+      }
+      pre {
+        white-space: pre-wrap;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        margin: 0;
+      }
+    </style></head><body>
+    <div class="meta-line">Patient: <strong>${name.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>${diag ? ' &nbsp;·&nbsp; Diagnose: ' + diag.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''} &nbsp;·&nbsp; Datum: ${date}</div>
+    <div class="betreff">Physiotherapeutischer Therapiebericht</div>
+    <hr class="divider">
+    <pre>${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+  </body></html>`);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+</script>
+</body>
+</html>
