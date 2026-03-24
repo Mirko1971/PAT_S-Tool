@@ -53,8 +53,43 @@ def init_db():
             test_unit       TEXT    DEFAULT '',
             FOREIGN KEY (measurement_id) REFERENCES measurements(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS therapists (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            first_name TEXT NOT NULL,
+            last_name  TEXT NOT NULL,
+            signature  TEXT DEFAULT ''
+        );
     ''')
     conn.commit()
+
+    # Migration: icd_code in patients
+    try:
+        conn.execute("ALTER TABLE patients ADD COLUMN icd_code TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
+
+    # Migration: therapist_id in measurements
+    try:
+        conn.execute('ALTER TABLE measurements ADD COLUMN therapist_id INTEGER REFERENCES therapists(id)')
+        conn.commit()
+    except Exception:
+        pass
+
+    # Pre-populate therapists if table is empty
+    if conn.execute('SELECT COUNT(*) FROM therapists').fetchone()[0] == 0:
+        therapists_data = [
+            ('Theresa', 'Bode'), ('Luisa', 'Goldbach'), ('Elisabeth', 'Driediger'),
+            ('Anna', 'Gorlt'), ('Mirko', 'Koster'), ('Vanessa', 'Koster'),
+            ('Jennifer', 'Tann'), ('Laura', 'Dey'), ('Michal', 'Kara'),
+            ('Marc-Fynn', 'Michael'), ('Sven', 'Schäfer'), ('Irene', 'Scheubel'),
+            ('Hanna', 'Taubert'), ('Anna', 'Lehn'), ('Hristina', 'Nechovska'),
+            ('Katharina', 'Heubaum'), ('Praktikant', 'Schule'),
+        ]
+        conn.executemany('INSERT INTO therapists (first_name, last_name) VALUES (?, ?)', therapists_data)
+        conn.commit()
+
     conn.close()
 
 
@@ -75,8 +110,8 @@ def handle_patients():
         if not name:
             return jsonify({'error': 'Name erforderlich'}), 400
         conn.execute(
-            'INSERT INTO patients (name, diagnosis) VALUES (?, ?)',
-            (name, data.get('diagnosis', '').strip())
+            'INSERT INTO patients (name, diagnosis, icd_code) VALUES (?, ?, ?)',
+            (name, data.get('diagnosis', '').strip(), data.get('icd_code', '').strip().upper())
         )
         conn.commit()
         return jsonify({'success': True})
@@ -107,7 +142,10 @@ def handle_measurements():
                 return jsonify({'error': 'patient_id required'}), 400
 
             rows = conn.execute(
-                'SELECT * FROM measurements WHERE patient_id = ? ORDER BY date ASC',
+                '''SELECT m.*, COALESCE(t.first_name || ' ' || t.last_name, '') AS therapist_name
+                   FROM measurements m
+                   LEFT JOIN therapists t ON t.id = m.therapist_id
+                   WHERE m.patient_id = ? ORDER BY m.date ASC''',
                 (pid,)
             ).fetchall()
 
@@ -128,10 +166,10 @@ def handle_measurements():
             return jsonify({'error': 'patient_id und date erforderlich'}), 400
 
         cur = conn.execute(
-            'INSERT INTO measurements (patient_id, date, sane, pain_nrs, gpc, notes) VALUES (?, ?, ?, ?, ?, ?)',
+            'INSERT INTO measurements (patient_id, date, sane, pain_nrs, gpc, notes, therapist_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
             (data['patient_id'], data['date'],
              data.get('sane'), data.get('pain_nrs'), data.get('gpc'),
-             data.get('notes', ''))
+             data.get('notes', ''), data.get('therapist_id'))
         )
         mid = cur.lastrowid
 
@@ -171,9 +209,9 @@ def handle_measurement(mid):
     conn = get_db()
     try:
         conn.execute(
-            'UPDATE measurements SET date=?, sane=?, pain_nrs=?, gpc=?, notes=? WHERE id=?',
+            'UPDATE measurements SET date=?, sane=?, pain_nrs=?, gpc=?, notes=?, therapist_id=? WHERE id=?',
             (data['date'], data.get('sane'), data.get('pain_nrs'), data.get('gpc'),
-             data.get('notes', ''), mid)
+             data.get('notes', ''), data.get('therapist_id'), mid)
         )
         conn.execute('DELETE FROM psfs_scores WHERE measurement_id=?', (mid,))
         for p in data.get('psfs', []):
@@ -187,6 +225,53 @@ def handle_measurement(mid):
                 'INSERT INTO function_tests (measurement_id, test_name, test_value, test_unit) VALUES (?,?,?,?)',
                 (mid, t['test_name'], t['test_value'], t['test_unit'])
             )
+        conn.commit()
+        return jsonify({'success': True})
+    finally:
+        conn.close()
+
+
+# ── Therapeuten ────────────────────────────────────────────────────────────────
+
+@app.route('/api/therapists', methods=['GET', 'POST'])
+def handle_therapists():
+    conn = get_db()
+    try:
+        if request.method == 'GET':
+            rows = conn.execute(
+                'SELECT id, first_name, last_name, signature FROM therapists ORDER BY last_name, first_name'
+            ).fetchall()
+            return jsonify([dict(r) for r in rows])
+
+        data = request.get_json()
+        first = (data.get('first_name') or '').strip()
+        last  = (data.get('last_name')  or '').strip()
+        if not first or not last:
+            return jsonify({'error': 'Vor- und Nachname erforderlich'}), 400
+        conn.execute('INSERT INTO therapists (first_name, last_name) VALUES (?, ?)', (first, last))
+        conn.commit()
+        return jsonify({'success': True})
+    finally:
+        conn.close()
+
+
+@app.route('/api/therapists/<int:tid>', methods=['DELETE'])
+def delete_therapist(tid):
+    conn = get_db()
+    try:
+        conn.execute('DELETE FROM therapists WHERE id = ?', (tid,))
+        conn.commit()
+        return jsonify({'success': True})
+    finally:
+        conn.close()
+
+
+@app.route('/api/therapists/<int:tid>/signature', methods=['POST'])
+def upload_signature(tid):
+    conn = get_db()
+    try:
+        data = request.get_json()
+        conn.execute('UPDATE therapists SET signature = ? WHERE id = ?', (data.get('signature', ''), tid))
         conn.commit()
         return jsonify({'success': True})
     finally:
@@ -282,6 +367,7 @@ def build_prompt(patient, measurements, instructions=''):
         '',
         '══ PATIENTENDATEN ══',
         f'Name/Code : {patient["name"]}',
+        f'ICD-10    : {patient["icd_code"] or "nicht angegeben"}',
         f'Diagnose  : {patient["diagnosis"] or "nicht dokumentiert"}',
         f'Zeitraum  : {first["date"]} bis {last["date"]} ({len(measurements)} Messzeitpunkt{"e" if len(measurements)>1 else ""})',
         '',
@@ -295,7 +381,8 @@ def build_prompt(patient, measurements, instructions=''):
     ]
 
     for m in measurements:
-        lines.append(f'── Messung {m["date"]} ──')
+        therapist_info = f'  (Therapeut: {m["therapist_name"]})' if m.get('therapist_name') else ''
+        lines.append(f'── Messung {m["date"]}{therapist_info} ──')
         if m['sane'] is not None:
             lines.append(f'  SANE   : {m["sane"]} %')
         if m['pain_nrs'] is not None:
@@ -381,7 +468,10 @@ def generate_report():
             return jsonify({'error': 'Patient nicht gefunden'}), 404
 
         rows = conn.execute(
-            'SELECT * FROM measurements WHERE patient_id = ? ORDER BY date', (pid,)
+            '''SELECT m.*, COALESCE(t.first_name || ' ' || t.last_name, '') AS therapist_name
+               FROM measurements m
+               LEFT JOIN therapists t ON t.id = m.therapist_id
+               WHERE m.patient_id = ? ORDER BY m.date''', (pid,)
         ).fetchall()
 
         if not rows:

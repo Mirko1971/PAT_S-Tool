@@ -156,6 +156,60 @@
     /* Summary */
     .sum-card { border: 1px solid var(--border); border-radius: 10px; background: #fff; padding: 1rem; }
 
+    /* ICD Ampel */
+    .icd-badge {
+      display: inline-flex; align-items: center; gap: .35rem;
+      font-size: .78rem; font-weight: 600; border-radius: 20px;
+      padding: .2rem .6rem; white-space: nowrap;
+    }
+    .icd-green  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .icd-yellow { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+    .icd-red    { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .icd-gray   { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+    .ampel-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green  { background: #16a34a; }
+    .dot-yellow { background: #ca8a04; }
+    .dot-red    { background: #dc2626; }
+    .dot-gray   { background: #94a3b8; }
+    #icdPreview { min-height: 28px; }
+
+    /* Statistik-Leiste */
+    .stats-bar {
+      display: flex; flex-wrap: wrap; gap: .4rem;
+      padding: .7rem 0 .1rem 0; border-top: 1px solid var(--border); margin-top: .75rem;
+    }
+    .stat-chip {
+      display: inline-flex; flex-direction: column; align-items: center;
+      background: #f8fafc; border: 1px solid var(--border);
+      border-radius: 8px; padding: .25rem .65rem; min-width: 64px;
+    }
+    .stat-label { font-size: .67rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+    .stat-val   { font-size: .95rem; font-weight: 700; color: #1e293b; }
+    .stat-chip.trend-pos { background: #dcfce7; border-color: #86efac; }
+    .stat-chip.trend-pos .stat-val { color: #166534; }
+    .stat-chip.trend-neg { background: #fee2e2; border-color: #fca5a5; }
+    .stat-chip.trend-neg .stat-val { color: #991b1b; }
+    .stat-chip.trend-neu { background: #f1f5f9; }
+    .stats-note { font-size: .72rem; color: var(--muted); align-self: center; margin-left: .25rem; }
+
+    /* Therapeuten */
+    .therapist-row {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .6rem .9rem; border-radius: 8px;
+      border: 1px solid var(--border); background: #fff; margin-bottom: .5rem;
+      transition: border-color .15s;
+    }
+    .therapist-row.active { border-color: var(--teal); background: var(--teal-lt); }
+    .therapist-row input[type=radio] { accent-color: var(--teal); width: 1.1rem; height: 1.1rem; flex-shrink: 0; }
+    .therapist-name { flex: 1; font-weight: 500; }
+    .sig-thumb { height: 32px; max-width: 100px; object-fit: contain; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+    .therapist-badge {
+      background: rgba(255,255,255,.15); border-radius: 20px;
+      padding: .35rem .9rem; font-size: .85rem; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.3);
+    }
+    .therapist-badge:hover { background: rgba(255,255,255,.25); }
+
     /* Util */
     .empty-state { text-align: center; padding: 3rem; color: var(--muted); }
     .empty-state .bi { font-size: 2.8rem; display: block; margin-bottom: .75rem; }
@@ -175,8 +229,16 @@
     <div class="app-logo"><i class="bi bi-activity me-2"></i>PAT_S</div>
     <div class="app-sub">Physio-Akademie Tool Schulter</div>
   </div>
-  <div id="hdrBadge" class="patient-badge d-none text-white">
-    <i class="bi bi-person-fill me-1"></i><span id="hdrName">–</span>
+  <div class="d-flex align-items-center gap-2">
+    <div id="hdrBadge" class="patient-badge d-none text-white">
+      <i class="bi bi-person-fill me-1"></i><span id="hdrName">–</span>
+    </div>
+    <div class="dropdown">
+      <div class="therapist-badge text-white dropdown-toggle" data-bs-toggle="dropdown" id="hdrTherapist">
+        <i class="bi bi-person-badge me-1"></i><span id="hdrTherapistName">Therapeut wählen</span>
+      </div>
+      <ul class="dropdown-menu dropdown-menu-end" id="therapistDropdown" style="min-width:220px;max-height:320px;overflow-y:auto"></ul>
+    </div>
   </div>
 </div>
 
@@ -189,6 +251,7 @@
       <li class="nav-item"><a class="nav-link" data-tab="charts" href="#"><i class="bi bi-graph-up me-1"></i>Verlauf</a></li>
       <li class="nav-item"><a class="nav-link" data-tab="data" href="#"><i class="bi bi-table me-1"></i>Daten</a></li>
       <li class="nav-item"><a class="nav-link" data-tab="report" href="#"><i class="bi bi-file-earmark-text me-1"></i>Therapiebericht</a></li>
+      <li class="nav-item"><a class="nav-link" data-tab="settings" href="#"><i class="bi bi-gear me-1"></i>Einstellungen</a></li>
     </ul>
   </div>
 </div>
@@ -218,10 +281,18 @@
 
     <div id="entryBody">
       <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-        <h5 class="fw-bold mb-0" id="entryTitle">Neue Messung erfassen</h5>
-        <div class="d-flex align-items-center gap-2">
-          <label class="fw-medium mb-0">Datum</label>
-          <input type="date" id="mDate" class="form-control" style="width:auto" />
+        <div>
+          <h5 class="fw-bold mb-1" id="entryTitle">Neue Messung erfassen</h5>
+          <div id="entryIcdBadge"></div>
+        </div>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div id="entryTherapistBadge" class="badge bg-secondary" style="font-size:.85rem;padding:.4rem .75rem">
+            <i class="bi bi-person-badge me-1"></i><span id="entryTherapistName">Kein Therapeut gewählt</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <label class="fw-medium mb-0">Datum</label>
+            <input type="date" id="mDate" class="form-control" style="width:auto" />
+          </div>
         </div>
       </div>
 
@@ -324,25 +395,37 @@
         <div class="col-md-6">
           <div class="card">
             <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-bullseye me-2"></i>SANE – Schultereinschätzung (%)</h6></div>
-            <div class="card-body"><div class="chart-box"><canvas id="chartSane"></canvas></div></div>
+            <div class="card-body">
+            <div class="chart-box"><canvas id="chartSane"></canvas></div>
+            <div id="stats-sane"></div>
+          </div>
           </div>
         </div>
         <div class="col-md-6">
           <div class="card">
             <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-thermometer-half me-2"></i>Schmerz NRS</h6></div>
-            <div class="card-body"><div class="chart-box"><canvas id="chartPain"></canvas></div></div>
+            <div class="card-body">
+              <div class="chart-box"><canvas id="chartPain"></canvas></div>
+              <div id="stats-pain"></div>
+            </div>
           </div>
         </div>
         <div class="col-md-6">
           <div class="card">
             <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-arrow-left-right me-2"></i>GPC – Gesamtveränderung</h6></div>
-            <div class="card-body"><div class="chart-box"><canvas id="chartGpc"></canvas></div></div>
+            <div class="card-body">
+              <div class="chart-box"><canvas id="chartGpc"></canvas></div>
+              <div id="stats-gpc"></div>
+            </div>
           </div>
         </div>
         <div class="col-md-6">
           <div class="card">
             <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-person-check me-2"></i>PSFS – Funktionsskala</h6></div>
-            <div class="card-body" id="chartPsfsWrap"><div class="chart-box"><canvas id="chartPsfs"></canvas></div></div>
+            <div class="card-body" id="chartPsfsWrap">
+              <div class="chart-box"><canvas id="chartPsfs"></canvas></div>
+              <div id="stats-psfs"></div>
+            </div>
           </div>
         </div>
         <div class="col-12" id="ftChartWrap"></div>
@@ -518,6 +601,77 @@
     </div><!-- /reportBody -->
   </div>
 
+  <!-- ── SETTINGS ── -->
+  <div id="tab-settings" class="d-none">
+    <h5 class="fw-bold mb-4"><i class="bi bi-gear me-2 text-primary"></i>Einstellungen</h5>
+
+    <!-- Therapeuten -->
+    <div class="card mb-4">
+      <div class="card-head-primary d-flex align-items-center justify-content-between">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-people me-2"></i>Therapeuten</h6>
+        <button class="btn btn-sm btn-light" onclick="openAddTherapist()"><i class="bi bi-plus-lg me-1"></i>Neu</button>
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          Wähle den aktiven Therapeuten über das Optionsfeld. Die Auswahl wird bei jeder Messung gespeichert.
+          Lade eine Unterschrift-Bilddatei hoch – sie erscheint automatisch im Therapiebericht.
+        </p>
+        <div id="therapistList">
+          <div class="text-center py-3"><span class="spinner-border text-primary"></span></div>
+        </div>
+        <!-- Add form (hidden) -->
+        <div id="addTherapistForm" class="d-none mt-3 p-3 border rounded bg-light">
+          <div class="row g-2">
+            <div class="col-sm-5">
+              <input type="text" id="newFirstName" class="form-control form-control-sm" placeholder="Vorname" />
+            </div>
+            <div class="col-sm-5">
+              <input type="text" id="newLastName" class="form-control form-control-sm" placeholder="Nachname" />
+            </div>
+            <div class="col-sm-2">
+              <button class="btn btn-primary btn-sm w-100" onclick="saveNewTherapist()"><i class="bi bi-check-lg"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OpenAI API -->
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center justify-content-between"
+           style="cursor:pointer;background:#f8fafc" onclick="toggleApiSettings2()">
+        <span class="fw-bold"><i class="bi bi-key me-2 text-primary"></i>OpenAI API-Einstellungen</span>
+        <div class="d-flex align-items-center gap-3">
+          <span id="apiStatus2" class="badge bg-secondary small">Nicht konfiguriert</span>
+          <i class="bi bi-chevron-down" id="apiChevron2"></i>
+        </div>
+      </div>
+      <div id="apiSettings2" class="card-body" style="display:none">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label fw-medium">API-Schlüssel (OpenAI)</label>
+            <div class="input-group">
+              <input type="password" id="apiKeyInput2" class="form-control font-monospace" placeholder="sk-..." autocomplete="off" />
+              <button class="btn btn-outline-secondary" type="button" onclick="toggleKeyVis2()"><i class="bi bi-eye" id="eyeIcon2"></i></button>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-medium">Modell</label>
+            <select class="form-select" id="modelSelect2">
+              <option value="gpt-4o">GPT-4o (empfohlen)</option>
+              <option value="gpt-4o-mini">GPT-4o mini (günstiger)</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-primary w-100" onclick="saveApiKey2()"><i class="bi bi-floppy me-1"></i>Speichern</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /container -->
 
 <!-- ── ADD PATIENT MODAL ── -->
@@ -534,7 +688,38 @@
           <input type="text" id="pName" class="form-control" placeholder="z.B. Müller, Hans oder P001" />
         </div>
         <div class="mb-3">
-          <label class="form-label fw-medium">Diagnose</label>
+          <label class="form-label fw-medium">ICD-10 Code (Schulter)</label>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" id="pIcd" class="form-control font-monospace text-uppercase"
+                   placeholder="z.B. M75.1" maxlength="8" list="icdDl"
+                   oninput="this.value=this.value.toUpperCase(); updateIcdPreview(this.value)" />
+            <div id="icdPreview"></div>
+          </div>
+          <datalist id="icdDl">
+            <option value="M75.0">M75.0 – Frozen Shoulder</option>
+            <option value="M75.1">M75.1 – Rotatorenmanschettenruptur</option>
+            <option value="M75.2">M75.2 – Tendinitis der Bizepssehne</option>
+            <option value="M75.3">M75.3 – Kalkschulter</option>
+            <option value="M75.4">M75.4 – Impingement-Syndrom</option>
+            <option value="M75.5">M75.5 – Bursitis subacromialis</option>
+            <option value="M75.9">M75.9 – Schulterläsion, nicht näher bezeichnet</option>
+            <option value="M19.01">M19.01 – Primäre Arthrose Schulter</option>
+            <option value="M19.11">M19.11 – Posttraumatische Arthrose Schulter</option>
+            <option value="M19.21">M19.21 – Sekundäre Arthrose Schulter</option>
+            <option value="M24.11">M24.11 – Instabilität Schultergelenk</option>
+            <option value="M24.21">M24.21 – Pathologische Gelenkdislokation</option>
+            <option value="M25.51">M25.51 – Gelenkschmerz Schulter</option>
+            <option value="M25.9">M25.9 – Gelenkkrankheit, nicht näher bezeichnet</option>
+            <option value="S42.00">S42.00 – Klavikulafraktur</option>
+            <option value="S42.20">S42.20 – Humerusfraktur</option>
+            <option value="S43.00">S43.00 – Schultergelenkluxation</option>
+            <option value="S43.10">S43.10 – Schultergelenk-Distorsion</option>
+            <option value="S46.00">S46.00 – Rotatorenmanschettenverletzung</option>
+            <option value="S46.10">S46.10 – Bizepssehne Verletzung</option>
+          </datalist>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-medium">Diagnose (Freitext)</label>
           <input type="text" id="pDiag" class="form-control" placeholder="z.B. Rotatorenmanschettenläsion rechts" />
         </div>
       </div>
@@ -574,6 +759,8 @@ const S = {
   gpcSel:       null,
   psfs:         [],   // [{name, score}]
   editId:       null, // id of measurement being edited, or null for new
+  therapists:   [],
+  therapist:    null, // {id, first_name, last_name, signature}
 };
 
 const GPC_OPTS = [
@@ -596,6 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
   addPsfs();
   addFt();
   loadPatients();
+  loadTherapists();
 
   document.querySelectorAll('[data-tab]').forEach(a => {
     a.addEventListener('click', e => { e.preventDefault(); go(a.dataset.tab); });
@@ -627,6 +815,10 @@ function go(tab) {
     document.getElementById('dataBody').classList.toggle('d-none', !S.patient);
     if (S.patient) renderDataTable();
   }
+  if (tab === 'settings') {
+    checkApiStatus2();
+    renderTherapistList();
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -644,29 +836,82 @@ async function loadPatients() {
     </div></div>`;
     return;
   }
-  list.innerHTML = pts.map(p => `
+  list.innerHTML = pts.map(p => {
+    const icdBadge = p.icd_code ? icdBadgeHtml(p.icd_code) : '';
+    return `
     <div class="col-md-4 col-sm-6">
-      <div class="pat-card ${S.patient?.id === p.id ? 'active' : ''}" onclick="selectPatient(${p.id},'${esc(p.name)}','${esc(p.diagnosis||'')}')">
+      <div class="pat-card ${S.patient?.id === p.id ? 'active' : ''}" onclick="selectPatient(${p.id},'${esc(p.name)}','${esc(p.diagnosis||'')}','${esc(p.icd_code||'')}')">
         <div class="d-flex justify-content-between align-items-start">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="fw-bold"><i class="bi bi-person-circle me-2 text-primary"></i>${p.name}</div>
+            ${icdBadge ? `<div class="mt-1">${icdBadge}</div>` : ''}
             ${p.diagnosis ? `<div class="small text-muted mt-1">${p.diagnosis}</div>` : ''}
             <div class="small text-muted mt-1"><i class="bi bi-calendar3 me-1"></i>${fmtDate(p.created_at)}</div>
           </div>
-          <div class="d-flex gap-1 align-items-center">
+          <div class="d-flex gap-1 align-items-center ms-2">
             ${S.patient?.id === p.id ? '<span class="badge bg-primary">Aktiv</span>' : ''}
             <button class="btn btn-sm btn-outline-danger" onclick="delPatient(event,${p.id})"><i class="bi bi-trash"></i></button>
           </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-function selectPatient(id, name, diag) {
-  S.patient = { id, name, diag };
+function selectPatient(id, name, diag, icd = '') {
+  S.patient      = { id, name, diag, icd };
+  S.measurements = [];
+
+  // Header
   document.getElementById('hdrBadge').classList.remove('d-none');
   document.getElementById('hdrName').textContent = name;
+
+  // ICD-Badge im Eintrag-Tab
+  const icdEl = document.getElementById('entryIcdBadge');
+  if (icdEl) icdEl.innerHTML = icd ? icdBadgeHtml(icd) : '';
+
+  // Verlauf-Tab leeren
+  Object.values(S.charts).forEach(c => c?.destroy());
+  S.charts = {};
+  document.getElementById('summaryRow').innerHTML = '';
+  document.getElementById('chartsBody').innerHTML = `
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h5 class="fw-bold mb-0">Verlauf &amp; Auswertung</h5>
+    </div>
+    <div id="summaryRow" class="row g-3 mb-4"></div>
+    <div class="row g-4">
+      <div class="col-md-6"><div class="card">
+        <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-bullseye me-2"></i>SANE – Schultereinschätzung (%)</h6></div>
+        <div class="card-body"><div class="chart-box"><canvas id="chartSane"></canvas></div><div id="stats-sane"></div></div>
+      </div></div>
+      <div class="col-md-6"><div class="card">
+        <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-thermometer-half me-2"></i>Schmerz NRS</h6></div>
+        <div class="card-body"><div class="chart-box"><canvas id="chartPain"></canvas></div><div id="stats-pain"></div></div>
+      </div></div>
+      <div class="col-md-6"><div class="card">
+        <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-arrow-left-right me-2"></i>GPC – Gesamtveränderung</h6></div>
+        <div class="card-body"><div class="chart-box"><canvas id="chartGpc"></canvas></div><div id="stats-gpc"></div></div>
+      </div></div>
+      <div class="col-md-6"><div class="card">
+        <div class="card-head-primary"><h6 class="mb-0 fw-bold"><i class="bi bi-person-check me-2"></i>PSFS – Funktionsskala</h6></div>
+        <div class="card-body" id="chartPsfsWrap"><div class="chart-box"><canvas id="chartPsfs"></canvas></div><div id="stats-psfs"></div></div>
+      </div></div>
+      <div class="col-12" id="ftChartWrap"></div>
+    </div>`;
+
+  // Daten-Tab leeren
+  const dataBody2 = document.getElementById('dataBody2');
+  if (dataBody2) dataBody2.innerHTML = '';
+
+  // Therapiebericht leeren
+  document.getElementById('repPatientName').value = '';
+  document.getElementById('repFrom').value        = '';
+  document.getElementById('repTo').value          = '';
+  document.getElementById('repText').textContent  = '';
+  document.getElementById('repPlaceholder').classList.remove('d-none');
+  document.getElementById('repStream').classList.add('d-none');
+  document.getElementById('repActions').style.display = 'none';
+
   loadMeasurements();
   loadPatients();
   toast(`Patient „${name}" ausgewählt`, 'success');
@@ -674,14 +919,20 @@ function selectPatient(id, name, diag) {
 
 function openAddPatient() {
   document.getElementById('pName').value = '';
+  document.getElementById('pIcd').value  = '';
   document.getElementById('pDiag').value = '';
+  document.getElementById('icdPreview').innerHTML = '';
   new bootstrap.Modal(document.getElementById('addPatModal')).show();
 }
 
 async function savePatient() {
   const name = document.getElementById('pName').value.trim();
   if (!name) { toast('Name erforderlich', 'danger'); return; }
-  await api('/api/patients', 'POST', { name, diagnosis: document.getElementById('pDiag').value.trim() });
+  await api('/api/patients', 'POST', {
+    name,
+    icd_code:  document.getElementById('pIcd').value.trim().toUpperCase(),
+    diagnosis: document.getElementById('pDiag').value.trim(),
+  });
   bootstrap.Modal.getInstance(document.getElementById('addPatModal')).hide();
   loadPatients();
   toast('Patient hinzugefügt', 'success');
@@ -839,6 +1090,7 @@ async function saveMeasurement() {
     notes:          document.getElementById('mNotes').value,
     psfs:           S.psfs.filter(a => a.name.trim()).map(a => ({ activity_name: a.name, score: a.score })),
     function_tests: collectFts(),
+    therapist_id:   S.therapist?.id ?? null,
   };
 
   let res;
@@ -1033,6 +1285,9 @@ async function renderCharts() {
       });
     });
   }
+
+  // Statistik-Leisten (ab 3 Messzeitpunkten)
+  renderAllStats(D);
 }
 
 function ds(label, data, color) {
@@ -1041,6 +1296,92 @@ function ds(label, data, color) {
 }
 
 function thresholdBand() { return {}; } // placeholder (chartjs-plugin-annotation optional)
+
+// ── Statistik ──────────────────────────────────────────────────────────────────
+function calcStats(values) {
+  const v = values.filter(x => x != null && !isNaN(x));
+  if (v.length < 3) return null;
+  const n    = v.length;
+  const mean = v.reduce((s, x) => s + x, 0) / n;
+  const sd   = Math.sqrt(v.reduce((s, x) => s + (x - mean) ** 2, 0) / (n - 1));
+  const min  = Math.min(...v);
+  const max  = Math.max(...v);
+  // Lineare Regression (kleinste Quadrate) → Trend pro Messung
+  const xMean = (n - 1) / 2;
+  const slope = v.reduce((s, x, i) => s + (i - xMean) * (x - mean), 0) /
+                v.reduce((s, _, i) => s + (i - xMean) ** 2, 0);
+  return { n, mean, sd, min, max, slope };
+}
+
+/**
+ * @param {number[]} values     Messwerte (null erlaubt)
+ * @param {string}   unit       Einheit (z.B. '%', 'NRS')
+ * @param {string}   containerId DOM-ID für Ausgabe
+ * @param {'higher'|'lower'}  positive  Was bedeutet "gut"?
+ * @param {string}   [label]   Optionaler Titel (für PSFS-Aktivitäten)
+ */
+function renderStatBar(values, unit, containerId, positive = 'higher', label = '') {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const st = calcStats(values);
+  if (!st) { el.innerHTML = ''; return; }
+
+  const fmt  = v => Number.isInteger(v) ? v : v.toFixed(1);
+  const fmtS = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+
+  // Trend-Chip-Farbe: positiv wenn slope in die "gute" Richtung geht
+  const trendGood = positive === 'higher' ? st.slope > 0.05 : st.slope < -0.05;
+  const trendBad  = positive === 'higher' ? st.slope < -0.05 : st.slope > 0.05;
+  const trendCls  = trendGood ? 'trend-pos' : trendBad ? 'trend-neg' : 'trend-neu';
+  const trendIcon = trendGood ? '↑' : trendBad ? '↓' : '→';
+
+  const titleHtml = label ? `<div class="small fw-semibold text-muted mb-1" style="font-size:.75rem">${label}</div>` : '';
+
+  el.innerHTML = `${titleHtml}<div class="stats-bar">
+    <div class="stat-chip"><span class="stat-label">n</span><span class="stat-val">${st.n}</span></div>
+    <div class="stat-chip"><span class="stat-label">Mittelwert</span><span class="stat-val">${fmt(st.mean)} ${unit}</span></div>
+    <div class="stat-chip"><span class="stat-label">Std.-Abw.</span><span class="stat-val">± ${fmt(st.sd)}</span></div>
+    <div class="stat-chip"><span class="stat-label">Min / Max</span><span class="stat-val">${fmt(st.min)} – ${fmt(st.max)}</span></div>
+    <div class="stat-chip ${trendCls}"><span class="stat-label">Trend / Messung</span><span class="stat-val">${trendIcon} ${fmtS(st.slope)}</span></div>
+    <span class="stats-note">n = ${st.n} Messzeitpunkte</span>
+  </div>`;
+}
+
+function renderAllStats(D) {
+  if (D.length < 3) return; // Stats erst ab ≥3 Messzeitpunkten
+
+  renderStatBar(D.map(m => m.sane),     '%',       'stats-sane', 'higher');
+  renderStatBar(D.map(m => m.pain_nrs), 'NRS',     'stats-pain', 'lower');
+  renderStatBar(D.map(m => m.gpc),      '',        'stats-gpc',  'higher');
+
+  // PSFS: eine Stats-Zeile pro Aktivität
+  const actNames = [...new Set(D.flatMap(m => (m.psfs || []).map(p => p.activity_name)))];
+  const psfsEl = document.getElementById('stats-psfs');
+  if (psfsEl && actNames.length) {
+    psfsEl.innerHTML = '';
+    actNames.forEach(name => {
+      const vals = D.map(m => (m.psfs || []).find(p => p.activity_name === name)?.score ?? null);
+      const tmpId = 'stats-psfs-' + name.replace(/\s+/g, '-');
+      const div = document.createElement('div');
+      div.id = tmpId;
+      psfsEl.appendChild(div);
+      renderStatBar(vals, 'Pkt.', tmpId, 'higher', name);
+    });
+  }
+
+  // Funktionstests: Stats-Container dynamisch nach Chart einfügen
+  const ftNames = [...new Set(D.flatMap(m => (m.function_tests || []).map(t => t.test_name)))];
+  ftNames.forEach((name, i) => {
+    const cardBody = document.getElementById(`ftChart-${i}`)?.closest('.card-body');
+    if (!cardBody) return;
+    let statsDiv = cardBody.querySelector('.ft-stats');
+    if (!statsDiv) { statsDiv = document.createElement('div'); statsDiv.className = 'ft-stats'; cardBody.appendChild(statsDiv); }
+    statsDiv.id = `stats-ft-${i}`;
+    const vals = D.map(m => (m.function_tests || []).find(t => t.test_name === name)?.test_value ?? null);
+    const unit = D.flatMap(m => m.function_tests || []).find(t => t.test_name === name)?.test_unit || '';
+    renderStatBar(vals, unit, `stats-ft-${i}`, 'higher');
+  });
+}
 
 // ── Summary Cards ──
 function renderSummary(D) {
@@ -1200,6 +1541,232 @@ async function exportJson() {
     download: `PAT_S_${S.patient.name}_${today()}.json`,
   });
   a.click();
+}
+
+// ══════════════════════════════════════════════════════
+//  ICD-10 AMPEL
+// ══════════════════════════════════════════════════════
+const ICD_DB = [
+  // High-Value (Grün)
+  { code: 'M75.0', label: 'Frozen Shoulder',               cat: 'green' },
+  { code: 'M75.1', label: 'Rotatorenmanschettenruptur',    cat: 'green' },
+  { code: 'M75.2', label: 'Tendinitis Bizepssehne',        cat: 'green' },
+  { code: 'M75.3', label: 'Kalkschulter',                  cat: 'green' },
+  { code: 'M75.4', label: 'Impingement-Syndrom',           cat: 'green' },
+  { code: 'M75.5', label: 'Bursitis subacromialis',        cat: 'green' },
+  // M19.x Grün
+  { code: 'M19',   label: 'Arthrose',                      cat: 'green' },
+  // S46.x Grün
+  { code: 'S46',   label: 'Sehnenverletzung',              cat: 'green' },
+  // Grenzfälle (Gelb)
+  { code: 'M24',   label: 'Instabilität',                  cat: 'yellow' },
+  { code: 'S43',   label: 'Luxation / Distorsion',         cat: 'yellow' },
+  { code: 'S42',   label: 'Fraktur (Nachbehandlung)',      cat: 'yellow' },
+  // Problematisch (Rot)
+  { code: 'M25.5', label: 'Gelenkschmerz unspezifisch',    cat: 'red' },
+  { code: 'M25.9', label: 'Unspezifische Diagnose',        cat: 'red' },
+  { code: 'M75.9', label: 'Schulterläsion, unspezifisch',  cat: 'red' },
+];
+
+const ICD_LABELS = {
+  green:  { cls: 'icd-green',  dot: 'dot-green',  text: 'Blanko-optimiert' },
+  yellow: { cls: 'icd-yellow', dot: 'dot-yellow', text: 'Grenzfall – Einzelfallprüfung' },
+  red:    { cls: 'icd-red',    dot: 'dot-red',    text: 'Vermeiden / klären' },
+};
+
+function classifyIcd(code) {
+  if (!code) return null;
+  const c = code.toUpperCase().trim();
+  // Exact match first, then prefix match (longest wins)
+  let best = null;
+  for (const entry of ICD_DB) {
+    if (c === entry.code || c.startsWith(entry.code + '.') || c.startsWith(entry.code)) {
+      if (!best || entry.code.length > best.code.length) best = entry;
+    }
+  }
+  return best;
+}
+
+function icdBadgeHtml(code) {
+  const entry = classifyIcd(code);
+  if (!entry) return `<span class="icd-badge icd-gray"><span class="ampel-dot dot-gray"></span>${code}</span>`;
+  const lbl = ICD_LABELS[entry.cat];
+  return `<span class="icd-badge ${lbl.cls}" title="${entry.label} – ${lbl.text}">
+    <span class="ampel-dot ${lbl.dot}"></span>${code} · ${entry.label}
+  </span>`;
+}
+
+function updateIcdPreview(code) {
+  const el = document.getElementById('icdPreview');
+  if (!code.trim()) { el.innerHTML = ''; return; }
+  el.innerHTML = icdBadgeHtml(code);
+  // Auto-fill Diagnose-Freitext wenn leer
+  const entry = classifyIcd(code);
+  const diagEl = document.getElementById('pDiag');
+  if (entry && !diagEl.value.trim()) diagEl.value = entry.label;
+}
+
+// ══════════════════════════════════════════════════════
+//  THERAPEUTEN
+// ══════════════════════════════════════════════════════
+async function loadTherapists() {
+  S.therapists = await api('/api/therapists');
+  // Restore selected therapist from localStorage
+  const savedId = parseInt(localStorage.getItem('pat_s_therapist_id'));
+  if (savedId) {
+    const t = S.therapists.find(x => x.id === savedId);
+    if (t) setActiveTherapist(t);
+  }
+  renderTherapistDropdown();
+}
+
+function setActiveTherapist(t) {
+  S.therapist = t;
+  const name = t ? `${t.first_name} ${t.last_name}` : 'Therapeut wählen';
+  document.getElementById('hdrTherapistName').textContent = name;
+  document.getElementById('entryTherapistName').textContent = t ? name : 'Kein Therapeut gewählt';
+  const badge = document.getElementById('entryTherapistBadge');
+  badge.className = t ? 'badge bg-success' : 'badge bg-secondary';
+  badge.style.cssText = 'font-size:.85rem;padding:.4rem .75rem';
+  if (t) localStorage.setItem('pat_s_therapist_id', t.id);
+  else   localStorage.removeItem('pat_s_therapist_id');
+}
+
+function renderTherapistDropdown() {
+  const ul = document.getElementById('therapistDropdown');
+  ul.innerHTML = S.therapists.map(t => `
+    <li>
+      <a class="dropdown-item d-flex align-items-center gap-2 ${S.therapist?.id === t.id ? 'active' : ''}"
+         href="#" onclick="setActiveTherapist(S.therapists.find(x=>x.id===${t.id})); renderTherapistDropdown(); return false">
+        <i class="bi ${S.therapist?.id === t.id ? 'bi-check-circle-fill text-success' : 'bi-circle'} flex-shrink-0"></i>
+        ${t.first_name} ${t.last_name}
+      </a>
+    </li>
+  `).join('') + `
+    <li><hr class="dropdown-divider"></li>
+    <li><a class="dropdown-item text-muted small" href="#" onclick="go('settings');return false">
+      <i class="bi bi-gear me-1"></i>Therapeuten verwalten
+    </a></li>`;
+}
+
+function renderTherapistList() {
+  const el = document.getElementById('therapistList');
+  if (!S.therapists.length) {
+    el.innerHTML = '<p class="text-muted small">Noch keine Therapeuten vorhanden.</p>';
+    return;
+  }
+  el.innerHTML = S.therapists.map(t => `
+    <div class="therapist-row ${S.therapist?.id === t.id ? 'active' : ''}" id="trow-${t.id}">
+      <input type="radio" name="therapistSelect" value="${t.id}"
+             ${S.therapist?.id === t.id ? 'checked' : ''}
+             onchange="setActiveTherapist(S.therapists.find(x=>x.id===${t.id})); renderTherapistDropdown(); document.querySelectorAll('.therapist-row').forEach(r=>r.classList.remove('active')); document.getElementById('trow-${t.id}').classList.add('active')" />
+      <span class="therapist-name">${t.first_name} ${t.last_name}</span>
+      ${t.signature
+        ? `<img src="${t.signature}" class="sig-thumb" alt="Unterschrift" />`
+        : `<span class="text-muted small">Keine Unterschrift</span>`}
+      <label class="btn btn-sm btn-outline-secondary mb-0" title="Unterschrift hochladen">
+        <i class="bi bi-upload"></i>
+        <input type="file" accept="image/*" class="d-none" onchange="uploadSignature(event, ${t.id})" />
+      </label>
+      ${t.signature ? `<button class="btn btn-sm btn-outline-danger" onclick="removeSignature(${t.id})" title="Unterschrift entfernen"><i class="bi bi-x-lg"></i></button>` : ''}
+      <button class="btn btn-sm btn-outline-danger" onclick="deleteTherapist(${t.id})" title="Therapeut löschen"><i class="bi bi-trash"></i></button>
+    </div>
+  `).join('');
+}
+
+function openAddTherapist() {
+  const form = document.getElementById('addTherapistForm');
+  form.classList.toggle('d-none');
+  if (!form.classList.contains('d-none')) document.getElementById('newFirstName').focus();
+}
+
+async function saveNewTherapist() {
+  const first = document.getElementById('newFirstName').value.trim();
+  const last  = document.getElementById('newLastName').value.trim();
+  if (!first || !last) { toast('Vor- und Nachname angeben', 'danger'); return; }
+  await api('/api/therapists', 'POST', { first_name: first, last_name: last });
+  document.getElementById('newFirstName').value = '';
+  document.getElementById('newLastName').value  = '';
+  document.getElementById('addTherapistForm').classList.add('d-none');
+  await loadTherapists();
+  renderTherapistList();
+  toast('Therapeut gespeichert', 'success');
+}
+
+async function deleteTherapist(id) {
+  if (!confirm('Therapeut wirklich löschen?')) return;
+  await api(`/api/therapists/${id}`, 'DELETE');
+  if (S.therapist?.id === id) setActiveTherapist(null);
+  await loadTherapists();
+  renderTherapistList();
+  renderTherapistDropdown();
+  toast('Therapeut gelöscht', 'warning');
+}
+
+async function uploadSignature(event, tid) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    await api(`/api/therapists/${tid}/signature`, 'POST', { signature: e.target.result });
+    await loadTherapists();
+    if (S.therapist?.id === tid) setActiveTherapist(S.therapists.find(x => x.id === tid));
+    renderTherapistList();
+    toast('Unterschrift gespeichert', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+async function removeSignature(tid) {
+  await api(`/api/therapists/${tid}/signature`, 'POST', { signature: '' });
+  await loadTherapists();
+  if (S.therapist?.id === tid) setActiveTherapist(S.therapists.find(x => x.id === tid));
+  renderTherapistList();
+  toast('Unterschrift entfernt', 'warning');
+}
+
+// ── API Settings (Settings Tab) ──
+function toggleApiSettings2() {
+  const el = document.getElementById('apiSettings2');
+  const ch = document.getElementById('apiChevron2');
+  const open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  ch.className = open ? 'bi bi-chevron-down' : 'bi bi-chevron-up';
+}
+
+function toggleKeyVis2() {
+  const inp = document.getElementById('apiKeyInput2');
+  const ico = document.getElementById('eyeIcon2');
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  ico.className = show ? 'bi bi-eye-slash' : 'bi bi-eye';
+}
+
+async function checkApiStatus2() {
+  const cfg = await api('/api/config');
+  const badge = document.getElementById('apiStatus2');
+  if (cfg.has_key) {
+    badge.textContent = `Konfiguriert (${cfg.key_preview})`;
+    badge.className = 'badge bg-success small';
+    document.getElementById('modelSelect2').value = cfg.model || 'gpt-4o';
+  } else {
+    badge.textContent = 'Nicht konfiguriert';
+    badge.className = 'badge bg-danger small';
+    document.getElementById('apiSettings2').style.display = 'block';
+    document.getElementById('apiChevron2').className = 'bi bi-chevron-up';
+  }
+}
+
+async function saveApiKey2() {
+  const key   = document.getElementById('apiKeyInput2').value.trim();
+  const model = document.getElementById('modelSelect2').value;
+  if (!key) { toast('Bitte API-Schlüssel eingeben', 'danger'); return; }
+  await api('/api/config', 'POST', { openai_key: key, model });
+  document.getElementById('apiKeyInput2').value = '';
+  await checkApiStatus2();
+  document.getElementById('apiSettings2').style.display = 'none';
+  document.getElementById('apiChevron2').className = 'bi bi-chevron-down';
+  toast('API-Schlüssel gespeichert', 'success');
 }
 
 // ══════════════════════════════════════════════════════
@@ -1411,53 +1978,46 @@ function downloadReport() {
   toast('Bericht heruntergeladen', 'success');
 }
 
-function printReport() {
+async function printReport() {
   const text = document.getElementById('repText').textContent;
   const name = S.patient?.name || 'Patient';
-  const diag = S.patient?.diagnosis || '';
+  const diag = S.patient?.diag  || '';
   const date = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
-  const win  = window.open('', '_blank');
+
+  // Immer frische Therapeuten-Daten laden, damit die Signatur aktuell ist
+  let therapist = null;
+  if (S.therapist?.id) {
+    await loadTherapists();
+    therapist = S.therapists.find(x => x.id === S.therapist.id) || null;
+  }
+
+  const therapistName = therapist ? `${therapist.first_name} ${therapist.last_name}` : '';
+  const sigHtml = therapist?.signature
+    ? `<img src="${therapist.signature}" style="max-height:48px;max-width:180px;display:block;margin-top:4px" alt="Unterschrift" />`
+    : '';
+  const win = window.open('', '_blank');
   win.document.write(`<!DOCTYPE html><html lang="de"><head>
     <meta charset="UTF-8"><title>Therapiebericht – ${name}</title>
     <style>
-      @page {
-        size: A4;
-        margin: 6.2cm 2.5cm 4cm 2.5cm;
-      }
-      body {
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 10.5pt;
-        line-height: 1.55;
-        color: #000;
-        margin: 0;
-      }
-      .betreff {
-        font-weight: bold;
-        margin-bottom: 0.6cm;
-        font-size: 11pt;
-      }
-      .meta-line {
-        font-size: 9.5pt;
-        color: #333;
-        margin-bottom: 0.4cm;
-      }
-      .divider {
-        border: none;
-        border-top: 0.5pt solid #aaa;
-        margin: 0.4cm 0 0.6cm 0;
-      }
-      pre {
-        white-space: pre-wrap;
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 10.5pt;
-        line-height: 1.55;
-        margin: 0;
-      }
+      @page { size: A4; margin: 6.2cm 2.5cm 4cm 2.5cm; }
+      body { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.55; color: #000; margin: 0; }
+      .betreff { font-weight: bold; margin-bottom: 0.6cm; font-size: 11pt; }
+      .meta-line { font-size: 9.5pt; color: #333; margin-bottom: 0.4cm; }
+      .divider { border: none; border-top: 0.5pt solid #aaa; margin: 0.4cm 0 0.6cm 0; }
+      pre { white-space: pre-wrap; font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.55; margin: 0; }
+      .signature-block { margin-top: 1.5cm; font-size: 9.5pt; }
     </style></head><body>
     <div class="meta-line">Patient: <strong>${name.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</strong>${diag ? ' &nbsp;·&nbsp; Diagnose: ' + diag.replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''} &nbsp;·&nbsp; Datum: ${date}</div>
     <div class="betreff">Physiotherapeutischer Therapiebericht</div>
     <hr class="divider">
     <pre>${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+    ${therapistName ? `
+    <div class="signature-block">
+      <hr class="divider">
+      ${sigHtml}
+      <div>${therapistName}</div>
+      <div style="color:#555">Physiotherapeut/in</div>
+    </div>` : ''}
   </body></html>`);
   win.document.close();
   win.focus();
