@@ -670,6 +670,29 @@
         </div>
       </div>
     </div>
+
+    <!-- Datenbank Export / Import -->
+    <div class="card mb-4">
+      <div class="card-head-primary">
+        <h6 class="mb-0 fw-bold"><i class="bi bi-database me-2"></i>Datenbank – Export / Import</h6>
+      </div>
+      <div class="card-body">
+        <p class="small text-muted mb-3">
+          Exportiere alle Patienten und Therapeuten in eine JSON-Datei und importiere sie auf einem anderen Rechner.
+          Beim Import werden nur neue Patienten und Messungen hinzugefügt – vorhandene Daten bleiben erhalten.
+        </p>
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+          <button class="btn btn-outline-primary" onclick="exportAllDb()">
+            <i class="bi bi-download me-2"></i>Gesamte Datenbank exportieren
+          </button>
+          <label class="btn btn-outline-success mb-0" style="cursor:pointer">
+            <i class="bi bi-upload me-2"></i>Datenbank importieren
+            <input type="file" accept=".json" style="display:none" onchange="importDb(this)" />
+          </label>
+        </div>
+        <div id="importResult" class="mt-3 d-none"></div>
+      </div>
+    </div>
   </div>
 
 </div><!-- /container -->
@@ -1541,6 +1564,52 @@ async function exportJson() {
     download: `PAT_S_${S.patient.name}_${today()}.json`,
   });
   a.click();
+}
+
+async function exportAllDb() {
+  const data = await api('/api/export-all');
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `PAT_S_Gesamtexport_${today()}.json`,
+  });
+  a.click();
+}
+
+function importDb(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    let data;
+    try { data = JSON.parse(e.target.result); }
+    catch { showImportResult('danger', 'Ungültige JSON-Datei.'); return; }
+
+    const res = await fetch('/api/import-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) {
+      showImportResult('danger', `Fehler: ${json.error}`);
+    } else {
+      const s = json.stats;
+      showImportResult('success',
+        `Import erfolgreich: ${s.patients_new} neue Patienten, ${s.patients_existing} bereits vorhanden, ` +
+        `${s.measurements_new} neue Messungen, ${s.therapists_new} neue Therapeuten.`
+      );
+      loadPatients();
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function showImportResult(type, msg) {
+  const el = document.getElementById('importResult');
+  el.className = `mt-3 alert alert-${type}`;
+  el.textContent = msg;
 }
 
 // ══════════════════════════════════════════════════════

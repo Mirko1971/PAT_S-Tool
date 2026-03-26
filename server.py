@@ -308,6 +308,123 @@ def export_data(pid):
         conn.close()
 
 
+@app.route('/api/export-all')
+def export_all():
+    """Exportiert die gesamte Datenbank (alle Patienten + Therapeuten)."""
+    conn = get_db()
+    try:
+        patients = [dict(r) for r in conn.execute('SELECT * FROM patients ORDER BY name COLLATE NOCASE').fetchall()]
+        for p in patients:
+            rows = conn.execute('SELECT * FROM measurements WHERE patient_id = ? ORDER BY date', (p['id'],)).fetchall()
+            measurements = []
+            for row in rows:
+                m = dict(row)
+                m['psfs'] = [dict(r) for r in conn.execute(
+                    'SELECT * FROM psfs_scores WHERE measurement_id = ?', (m['id'],)).fetchall()]
+                m['function_tests'] = [dict(r) for r in conn.execute(
+                    'SELECT * FROM function_tests WHERE measurement_id = ?', (m['id'],)).fetchall()]
+                measurements.append(m)
+            p['measurements'] = measurements
+
+        therapists = [dict(r) for r in conn.execute('SELECT * FROM therapists ORDER BY last_name, first_name').fetchall()]
+
+        return jsonify({
+            'version': 1,
+            'exported_at': __import__('datetime').datetime.now().isoformat(),
+            'patients': patients,
+            'therapists': therapists,
+        })
+    finally:
+        conn.close()
+
+
+@app.route('/api/import-all', methods=['POST'])
+def import_all():
+    """Importiert einen Vollexport. Patienten/Messungen werden anhand von Name+Datum zusammengeführt."""
+    data = request.get_json()
+    if not data or 'patients' not in data:
+        return jsonify({'error': 'Ungültiges Format'}), 400
+
+    conn = get_db()
+    stats = {'patients_new': 0, 'patients_existing': 0, 'measurements_new': 0, 'therapists_new': 0}
+    try:
+        # Therapeuten importieren (nur neue anlegen)
+        for t in (data.get('therapists') or []):
+            exists = conn.execute(
+                'SELECT id FROM therapists WHERE first_name=? AND last_name=?',
+                (t['first_name'], t['last_name'])
+            ).fetchone()
+            if not exists:
+                conn.execute(
+                    'INSERT INTO therapists (first_name, last_name, signature) VALUES (?,?,?)',
+                    (t['first_name'], t['last_name'], t.get('signature', ''))
+                )
+                stats['therapists_new'] += 1
+
+        # Patienten + Messungen importieren
+        for p in data['patients']:
+            existing = conn.execute(
+                'SELECT id FROM patients WHERE name=?', (p['name'],)
+            ).fetchone()
+            if existing:
+                pid = existing['id']
+                stats['patients_existing'] += 1
+            else:
+                cur = conn.execute(
+                    'INSERT INTO patients (name, diagnosis, icd_code) VALUES (?,?,?)',
+                    (p['name'], p.get('diagnosis', ''), p.get('icd_code', ''))
+                )
+                pid = cur.lastrowid
+                stats['patients_new'] += 1
+
+            existing_dates = {r['date'] for r in conn.execute(
+                'SELECT date FROM measurements WHERE patient_id=?', (pid,)).fetchall()}
+
+            for m in (p.get('measurements') or []):
+                if m['date'] in existing_dates:
+                    continue  # Messung bereits vorhanden – überspringen
+
+                # Therapeut-ID auflösen
+                tid = None
+                if m.get('therapist_id'):
+                    # Therapeuten-Name aus Exportdaten ermitteln
+                    src_t = next((t for t in (data.get('therapists') or [])
+                                  if str(t.get('id')) == str(m['therapist_id']) or t.get('id') == m['therapist_id']), None)
+                    if src_t:
+                        row = conn.execute(
+                            'SELECT id FROM therapists WHERE first_name=? AND last_name=?',
+                            (src_t['first_name'], src_t['last_name'])
+                        ).fetchone()
+                        if row:
+                            tid = row['id']
+
+                cur2 = conn.execute(
+                    'INSERT INTO measurements (patient_id, date, sane, pain_nrs, gpc, notes, therapist_id) VALUES (?,?,?,?,?,?,?)',
+                    (pid, m['date'], m.get('sane'), m.get('pain_nrs'), m.get('gpc'), m.get('notes', ''), tid)
+                )
+                mid = cur2.lastrowid
+
+                for ps in (m.get('psfs') or []):
+                    conn.execute(
+                        'INSERT INTO psfs_scores (measurement_id, activity_name, score) VALUES (?,?,?)',
+                        (mid, ps['activity_name'], ps['score'])
+                    )
+                for ft in (m.get('function_tests') or []):
+                    conn.execute(
+                        'INSERT INTO function_tests (measurement_id, test_name, test_value, test_unit) VALUES (?,?,?,?)',
+                        (mid, ft['test_name'], ft['test_value'], ft.get('test_unit', ''))
+                    )
+                stats['measurements_new'] += 1
+
+        conn.commit()
+        return jsonify({'success': True, 'stats': stats})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
+
+
 # ── Konfiguration (API-Schlüssel) ──────────────────────────────────────────────
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
