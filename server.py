@@ -464,7 +464,7 @@ def handle_config():
 
 # ── Berichtgenerierung (SSE-Streaming) ─────────────────────────────────────────
 
-def build_prompt(patient, measurements, instructions=''):
+def build_prompt(patient, measurements, instructions='', report_type='standard'):
     """Erstellt den strukturierten Prompt für den Therapiebericht."""
     first, last = measurements[0], measurements[-1]
 
@@ -478,9 +478,15 @@ def build_prompt(patient, measurements, instructions=''):
         -3: 'Schlechter als je zuvor',
     }
 
+    INTRO = {
+        'standard':      'Erstelle einen professionellen Physiotherapie-Therapiebericht (Arztbrief) auf Deutsch\nfür den behandelnden Arzt. Verwende eine sachliche, medizinische Sprache.',
+        'summary':       'Erstelle eine kurze Zusammenfassung (3–5 Sätze) des Therapieverlaufs auf Deutsch.\nFasse die wichtigsten Ergebnisse prägnant zusammen. Keine Überschriften, kein Briefformat.',
+        'soap':          'Erstelle eine strukturierte Verlaufsnotiz im SOAP-Format auf Deutsch.\nGliederung: S (Subjektiv) – O (Objektiv) – A (Assessment) – P (Plan).',
+        'pain_function': 'Erstelle einen professionellen Physiotherapie-Therapiebericht auf Deutsch\nmit besonderem Fokus auf die Schmerzentwicklung und Funktionsverbesserung.',
+    }
+
     lines = [
-        'Erstelle einen professionellen Physiotherapie-Therapiebericht (Arztbrief) auf Deutsch',
-        'für den behandelnden Arzt. Verwende eine sachliche, medizinische Sprache.',
+        INTRO.get(report_type, INTRO['standard']),
         '',
         '══ PATIENTENDATEN ══',
         f'Name/Code : {patient["name"]}',
@@ -547,18 +553,52 @@ def build_prompt(patient, measurements, instructions=''):
                     lines.append(f'    • {name}: {first_psfs[name]} → {last_psfs[name]}  (Δ {d:+})')
         lines.append('')
 
-    lines += [
-        '══ AUFGABE ══',
-        'Erstelle einen strukturierten Arztbrief mit diesen Abschnitten:',
-        '1. Betreff (Diagnose, Behandlungszeitraum)',
-        '2. Vorstellungsgrund und Ausgangssituation',
-        '3. Therapieverlauf und Ergebnismessung (beziehe die konkreten Messwerte ein)',
-        '4. Aktueller Befund',
-        '5. Zusammenfassung und Empfehlung',
-        '',
-        'Interpretiere die Messwerte klinisch. Schwellenwerte basieren auf dem IQWiG-Standard (15% der Skalaspanne).',
-        'Schreibe in der dritten Person (z.B. "Der Patient …" / "Die Patientin …").',
-    ]
+    TASK = {
+        'standard': [
+            '══ AUFGABE ══',
+            'Erstelle einen strukturierten Arztbrief mit diesen Abschnitten:',
+            '1. Betreff (Diagnose, Behandlungszeitraum)',
+            '2. Vorstellungsgrund und Ausgangssituation',
+            '3. Therapieverlauf und Ergebnismessung (beziehe die konkreten Messwerte ein)',
+            '4. Aktueller Befund',
+            '5. Zusammenfassung und Empfehlung',
+            '',
+            'Interpretiere die Messwerte klinisch. Schwellenwerte basieren auf dem IQWiG-Standard (15% der Skalaspanne).',
+            'Schreibe in der dritten Person (z.B. "Der Patient …" / "Die Patientin …").',
+        ],
+        'summary': [
+            '══ AUFGABE ══',
+            'Schreibe 3–5 zusammenhängende Sätze. Kein Briefformat, keine Überschriften.',
+            'Nenne Diagnose, Behandlungszeitraum, die wichtigsten Messwertveränderungen und das Ergebnis.',
+            'Interpretiere die Messwerte klinisch (klinisch relevant / unter Schwellenwert).',
+            'Schreibe in der dritten Person.',
+        ],
+        'soap': [
+            '══ AUFGABE ══',
+            'Erstelle eine Verlaufsnotiz exakt im SOAP-Format:',
+            'S (Subjektiv):  Beschwerden und Selbsteinschätzung des Patienten (SANE, NRS, PSFS, GPC).',
+            'O (Objektiv):   Messwerte und Funktionstests mit konkreten Zahlen.',
+            'A (Assessment): Klinische Interpretation der Veränderungen (Schwellenwerte beachten).',
+            'P (Plan):       Empfehlung für das weitere Vorgehen.',
+            '',
+            'Keine zusätzlichen Abschnitte außerhalb des SOAP-Schemas.',
+            'Schreibe in der dritten Person.',
+        ],
+        'pain_function': [
+            '══ AUFGABE ══',
+            'Erstelle einen strukturierten Arztbrief mit diesen Abschnitten:',
+            '1. Betreff (Diagnose, Behandlungszeitraum)',
+            '2. Schmerzentwicklung: Analysiere NRS- und SANE-Verlauf detailliert.',
+            '3. Funktionsverbesserung: Analysiere PSFS und Funktionstests detailliert.',
+            '4. GPC und Gesamtbeurteilung',
+            '5. Zusammenfassung und Empfehlung',
+            '',
+            'Stelle Schmerz- und Funktionsdaten in den Vordergrund. Interpretiere klinische Relevanz anhand der Schwellenwerte.',
+            'Schreibe in der dritten Person.',
+        ],
+    }
+
+    lines += TASK.get(report_type, TASK['standard'])
 
     if instructions:
         lines += ['', f'Zusätzliche Hinweise: {instructions}']
@@ -578,21 +618,33 @@ def generate_report():
     if not pid:
         return jsonify({'error': 'patient_id fehlt'}), 400
 
+    date_from   = data.get('date_from')
+    date_to     = data.get('date_to')
+    report_type = data.get('report_type', 'standard')
+
     conn = get_db()
     try:
         patient = conn.execute('SELECT * FROM patients WHERE id = ?', (pid,)).fetchone()
         if not patient:
             return jsonify({'error': 'Patient nicht gefunden'}), 404
 
-        rows = conn.execute(
-            '''SELECT m.*, COALESCE(t.first_name || ' ' || t.last_name, '') AS therapist_name
-               FROM measurements m
-               LEFT JOIN therapists t ON t.id = m.therapist_id
-               WHERE m.patient_id = ? ORDER BY m.date''', (pid,)
-        ).fetchall()
+        query  = '''SELECT m.*, COALESCE(t.first_name || ' ' || t.last_name, '') AS therapist_name
+                    FROM measurements m
+                    LEFT JOIN therapists t ON t.id = m.therapist_id
+                    WHERE m.patient_id = ?'''
+        params = [pid]
+        if date_from:
+            query += ' AND m.date >= ?'
+            params.append(date_from)
+        if date_to:
+            query += ' AND m.date <= ?'
+            params.append(date_to)
+        query += ' ORDER BY m.date'
+
+        rows = conn.execute(query, params).fetchall()
 
         if not rows:
-            return jsonify({'error': 'Keine Messungen für diesen Patienten vorhanden'}), 400
+            return jsonify({'error': 'Keine Messungen für diesen Patienten im gewählten Zeitraum vorhanden'}), 400
 
         measurements = []
         for row in rows:
@@ -607,7 +659,7 @@ def generate_report():
     finally:
         conn.close()
 
-    prompt = build_prompt(dict(patient), measurements, data.get('instructions', ''))
+    prompt = build_prompt(dict(patient), measurements, data.get('instructions', ''), report_type)
     model  = cfg.get('model', 'gpt-4o')
 
     system_msg = (

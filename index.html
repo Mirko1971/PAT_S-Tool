@@ -540,10 +540,10 @@
               <div>
                 <label class="form-label fw-medium small">Berichtsart</label>
                 <select class="form-select form-select-sm" id="repStyle">
-                  <option value="">Strukturierter Arztbrief (Standard)</option>
-                  <option value="Erstelle eine kurze Zusammenfassung in 3–5 Sätzen.">Kurzzusammenfassung</option>
-                  <option value="Erstelle den Bericht als Verlaufsnotiz (SOAP-Format: Subjektiv, Objektiv, Assessment, Plan).">SOAP-Format</option>
-                  <option value="Fokussiere besonders auf die Schmerzentwicklung und Funktionsverbesserung.">Fokus: Schmerz & Funktion</option>
+                  <option value="standard">Strukturierter Arztbrief (Standard)</option>
+                  <option value="summary">Kurzzusammenfassung</option>
+                  <option value="soap">SOAP-Format</option>
+                  <option value="pain_function">Fokus: Schmerz & Funktion</option>
                 </select>
               </div>
 
@@ -1966,16 +1966,16 @@ async function generateReport() {
   document.getElementById('repText').textContent = '';
   document.getElementById('repActions').style.display = 'none';
 
-  const style   = document.getElementById('repStyle').value;
-  const custom  = document.getElementById('repInstructions').value.trim();
-  const instructions = [style, custom].filter(Boolean).join(' ');
+  const report_type  = document.getElementById('repStyle').value || 'standard';
+  const instructions = document.getElementById('repInstructions').value.trim();
 
   try {
     const res = await fetch('/api/generate-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        patient_id:   S.patient.id,
+        patient_id:  S.patient.id,
+        report_type,
         instructions,
         date_from: document.getElementById('repFrom').value || null,
         date_to:   document.getElementById('repTo').value   || null,
