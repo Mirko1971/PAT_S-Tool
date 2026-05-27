@@ -219,6 +219,86 @@
     .btn-outline-primary:hover { background: var(--teal); border-color: var(--teal); }
     .text-primary { color: var(--teal) !important; }
     .spinner-border { width: 1.2rem; height: 1.2rem; }
+
+    /* ═══════════════════════════════════════════
+       MOBILE OPTIMIERUNG
+    ═══════════════════════════════════════════ */
+
+    /* ── Smartphone (< 576 px) ── */
+    @media (max-width: 575.98px) {
+
+      /* Header kompakt */
+      .app-header  { padding: .55rem .9rem; }
+      .app-logo    { font-size: 1.05rem; }
+      .app-sub     { display: none; }
+      .patient-badge   { font-size: .76rem; padding: .22rem .55rem; }
+      .therapist-badge { font-size: .76rem; padding: .22rem .55rem; }
+
+      /* Nav – horizontal scrollbar (unsichtbar) */
+      .top-nav { top: 46px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+      .top-nav::-webkit-scrollbar { display: none; }
+      .top-nav .nav  { flex-wrap: nowrap; }
+      .top-nav .nav-link { font-size: .78rem; padding: .55rem .75rem; white-space: nowrap; }
+
+      /* NRS & PSFS – 2 Zeilen (je 6 Tasten) statt 1 Zeile mit 11 Zwergtasten */
+      .btn-grid  { grid-template-columns: repeat(6, 1fr); gap: 5px; }
+      .psfs-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+      .scale-btn { padding: 11px 2px; font-size: .92rem; border-radius: 8px; min-height: 44px; }
+
+      /* SANE-Slider */
+      .sane-val { font-size: 2.3rem; }
+      .sane-slider::-webkit-slider-thumb { width: 32px; height: 32px; }
+
+      /* Funktionstest-Inputs umbrechen */
+      #ftRows > div { flex-wrap: wrap !important; align-items: flex-start !important; }
+      .ft-name { flex: 1 1 100% !important; max-width: none !important; }
+      .ft-val  { flex: 1 1 45%  !important; min-width: 0 !important; max-width: none !important; }
+      .ft-unit { flex: 1 1 35%  !important; min-width: 0 !important; max-width: none !important; }
+      .ft-del  { align-self: flex-end; min-height: 38px; }
+
+      /* GPC-Zeilen etwas kompakter */
+      .gpc-row   { padding: .45rem .7rem; }
+      .gpc-badge { width: 32px; height: 32px; font-size: .85rem; margin-right: .7rem; }
+
+      /* Instrument-Karten */
+      .instr-card        { padding: .9rem 1rem; }
+      .card-head-primary { padding: .7rem .9rem; }
+
+      /* Summary-Karten */
+      .sum-card { padding: .7rem; }
+
+      /* Statistik-Chips – kleiner */
+      .stat-chip  { min-width: 54px; padding: .2rem .45rem; }
+      .stat-label { font-size: .61rem; }
+      .stat-val   { font-size: .87rem; }
+
+      /* Buttons – Touch-freundliche Mindestgröße (WCAG 2.5.5) */
+      .btn:not(.scale-btn) { min-height: 44px; }
+      .btn-sm              { min-height: 40px; }
+      .btn-lg              { min-height: 52px; font-size: 1.05rem; }
+
+      /* Therapeuten-Zeile umbrechen */
+      .therapist-row { flex-wrap: wrap; row-gap: .4rem; }
+
+      /* Extra Abstand unten (iOS-Safari Homebalken) */
+      .container.py-4 { padding-bottom: 2.5rem !important; }
+    }
+
+    /* ── Sehr kleine Geräte (< 380 px) ── */
+    @media (max-width: 379.98px) {
+      .app-logo  { font-size: .95rem; }
+      .top-nav .nav-link { font-size: .72rem; padding: .5rem .6rem; }
+      .scale-btn { font-size: .82rem; padding: 9px 1px; }
+      .gpc-row span { font-size: .82rem; }
+    }
+
+    /* ── Tablet (576–767 px) ── */
+    @media (min-width: 576px) and (max-width: 767.98px) {
+      .btn-grid  { gap: 5px; }
+      .psfs-grid { gap: 4px; }
+      .scale-btn { padding: 10px 2px; }
+      .top-nav .nav-link { padding: .65rem .9rem; font-size: .83rem; }
+    }
   </style>
 </head>
 <body>
@@ -229,13 +309,13 @@
     <div class="app-logo"><i class="bi bi-activity me-2"></i>PAT_S</div>
     <div class="app-sub">Physio-Akademie Tool Schulter</div>
   </div>
-  <div class="d-flex align-items-center gap-2">
+  <div class="d-flex align-items-center gap-2 flex-shrink-0">
     <div id="hdrBadge" class="patient-badge d-none text-white">
       <i class="bi bi-person-fill me-1"></i><span id="hdrName">–</span>
     </div>
     <div class="dropdown">
       <div class="therapist-badge text-white dropdown-toggle" data-bs-toggle="dropdown" id="hdrTherapist">
-        <i class="bi bi-person-badge me-1"></i><span id="hdrTherapistName">Therapeut wählen</span>
+        <i class="bi bi-person-badge me-1"></i><span id="hdrTherapistName" class="d-none d-sm-inline">Therapeut wählen</span>
       </div>
       <ul class="dropdown-menu dropdown-menu-end" id="therapistDropdown" style="min-width:220px;max-height:320px;overflow-y:auto"></ul>
     </div>
@@ -1077,10 +1157,10 @@ function addFt() {
   row.className = 'd-flex gap-2 mb-2 align-items-center';
   row.id = `ft-${id}`;
   row.innerHTML = `
-    <input type="text"   class="form-control"       placeholder="Testname (z.B. Flexion ROM, 1RM Abduktion)" style="flex:3">
-    <input type="number" class="form-control"       placeholder="Wert" step="0.1" style="flex:1;min-width:80px">
-    <input type="text"   class="form-control"       placeholder="Einheit" list="unitsDl" style="flex:1;max-width:90px">
-    <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('ft-${id}').remove()">
+    <input type="text"   class="form-control ft-name" placeholder="Testname (z.B. Flexion ROM, 1RM Abduktion)" style="flex:3">
+    <input type="number" class="form-control ft-val"  placeholder="Wert" step="0.1" style="flex:1;min-width:80px">
+    <input type="text"   class="form-control ft-unit" placeholder="Einheit" list="unitsDl" style="flex:1;max-width:90px">
+    <button type="button" class="btn btn-sm btn-outline-danger ft-del" onclick="document.getElementById('ft-${id}').remove()">
       <i class="bi bi-trash"></i>
     </button>
   `;
